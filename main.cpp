@@ -9,6 +9,7 @@
 #include <vector>
 // #include <climits>
 // #include <sys/stat.h>
+#include <ncurses.h>
 
 #include <sodium.h>
 
@@ -47,6 +48,7 @@ void File::storeSecrets(const char *pw, const char *k, const unsigned char *s)
     // std::cout << "\nk: " << k << " " << strlen(k);
     // std::cout << "\ns: " << s << " " << strlen(reinterpret_cast<const char *>(s));
 
+
     for (unsigned int i = 0; i < strlen(pw); i++)
     {
         convert.ch = pw[i];
@@ -59,7 +61,8 @@ void File::storeSecrets(const char *pw, const char *k, const unsigned char *s)
         of << std::hex << convert.num << " ";
     }
     of << "\n";
-    for (unsigned int i = 0; i < strlen(reinterpret_cast<const char *>(s)); i++)
+    // for (unsigned int i = 0; i < strlen(reinterpret_cast<const char *>(s)); i++)
+    for (unsigned int i = 0; i < strlen((const char *)s); i++)
     {
         convert.ch = s[i];
         of << std::hex << convert.num << " ";
@@ -93,12 +96,12 @@ class Crypto{
 
         void clearMemory();
         int pandorasBox();
+        void getPassword();
         void hashPassword(const char *in, char *out);
         void hashMasterKey(unsigned char *in, char *out);
         void createKey(const char *in, unsigned char *out);
         void readSecrets();
-        void openPandorasBox();
-        void getPassword();
+        int openPandorasBox();
 };
 
 Crypto::Crypto()
@@ -136,22 +139,32 @@ int Crypto::pandorasBox()
         return 0;
     }
 }
+void Crypto::getPassword()
+{
+    printw("\nPassword: "); refresh();
+    // std::cin.getline(this->password, 50);
+    noecho();
+    getstr(this->password);
+    echo();
+
+    clear();refresh();
+}
 void Crypto::hashPassword(const char *in, char *out)
 {
     if (crypto_pwhash_scryptsalsa208sha256_str(
         out, in, strlen(in),
          crypto_pwhash_scryptsalsa208sha256_OPSLIMIT_INTERACTIVE,
          crypto_pwhash_scryptsalsa208sha256_MEMLIMIT_INTERACTIVE) != 0) {
-        std::cout << "\nOut of Memory;";
+        printw("\nOut of Memory"); refresh();
     }
 }
 void Crypto::hashMasterKey(unsigned char *in, char *out)
 {
     if (crypto_pwhash_scryptsalsa208sha256_str(
-        out, reinterpret_cast<const char *>(in), strlen(reinterpret_cast<const char *>(in)),
+        out, (const char *)in, strlen((const char *)in),
          crypto_pwhash_scryptsalsa208sha256_OPSLIMIT_INTERACTIVE,
          crypto_pwhash_scryptsalsa208sha256_MEMLIMIT_INTERACTIVE) != 0) {
-        std::cout << "\nOut of Memory;";
+        printw("\nOut of Memory"); refresh();
     }
 }
 void Crypto::createKey(const char *in, unsigned char *out)
@@ -160,7 +173,7 @@ void Crypto::createKey(const char *in, unsigned char *out)
         (out, sizeof out, in, strlen(in), this->salt,
          crypto_pwhash_scryptsalsa208sha256_OPSLIMIT_INTERACTIVE,
          crypto_pwhash_scryptsalsa208sha256_MEMLIMIT_INTERACTIVE) != 0) {
-        std::cout << "\nOut of Memory;";
+        printw("\nOut of Memory"); refresh();
     }
 }
 void Crypto::readSecrets()
@@ -225,12 +238,12 @@ void Crypto::readSecrets()
         this->salt[i] = final[i];
     }
 
-    // std::cout << "\nfinal: " << s <<"\n";
-    // std::cout << "\nfinal: " << final <<"\n";
+    std::cout << "\nfinal: " << s <<"\n";
+    std::cout << "\nfinal: " << final <<"\n";
 
     inf.close();
 }
-void Crypto::openPandorasBox()
+int Crypto::openPandorasBox()
 {
     // std::cout << this->hashedMasterKey;
     // std::cout << "\nPassword: " << this->password;
@@ -238,7 +251,10 @@ void Crypto::openPandorasBox()
     if (crypto_pwhash_scryptsalsa208sha256_str_verify(
         this->hashedPassword, this->password, strlen(this->password)) != 0) 
     {
-        std::cout << "\nIncorrect Password";
+        printw("\nIncorrect Password"); refresh();
+        this->getPassword();
+        this->openPandorasBox();
+        return 0;
     }
 
     //create testKey with password and salt
@@ -246,21 +262,19 @@ void Crypto::openPandorasBox()
 
     //test testKey against hashed key
     if (crypto_pwhash_scryptsalsa208sha256_str_verify(
-        this->hashedMasterKey, reinterpret_cast<const char *>(this->testKey), 
-        strlen(reinterpret_cast<const char *>(this->testKey))) != 0) 
+        this->hashedMasterKey, (const char *)this->testKey, 
+        strlen((const char *)this->testKey)) != 0) 
     {
-        std::cout << "\nKeys Don't match\n";
+        printw("\nKeys Don't match\n"); refresh();
+        return 0;
     }
     else
     {
-        std::cout << "\nKeys match!\n";
+        printw("\nKeys match!\n"); refresh();
+        return 1;
     }
 }
-void Crypto::getPassword()
-{
-    std::cout << "\nPassword: ";
-    std::cin.getline(this->password, 50);
-}
+
 
 
 
@@ -276,11 +290,8 @@ class Interaction{
     public:
         Interaction();
         ~Interaction();
-        void hideUserInput();
-        void showUserInput();
 
         void startUp();
-        void getSecrets();
         void startFresh();
 };
 
@@ -289,60 +300,46 @@ Interaction::Interaction()
 {
     if (sodium_init() == -1)
     {
-        std::cout << "Sodium couldn't initialize\n";
+        printw("Sodium couldn't initialize\n"); refresh();
     }
+    initscr();
     this->startUp();
 }
 Interaction::~Interaction()
 {
-
-}
-void Interaction::hideUserInput()
-{
-    termios tty;
-    tcgetattr(STDIN_FILENO, &tty);
-    tty.c_lflag &= ~ECHO;
-    tcsetattr(STDIN_FILENO, TCSANOW, &tty);
-}
-void Interaction::showUserInput()
-{
-    termios tty;
-    tcgetattr(STDIN_FILENO, &tty);
-    tty.c_lflag |= ECHO;
-    tcsetattr(STDIN_FILENO, TCSANOW, &tty);
+    endwin();
 }
 void Interaction::startUp()
 {
     if (crypt.pandorasBox())
     {
-        std::cout << "\nOpen Pandora's Box\n";
-        this->hideUserInput();
+        printw("\nOpen Pandora's Box\n"); refresh();
         crypt.getPassword();
-        this->showUserInput();
 
         crypt.readSecrets();
-        crypt.openPandorasBox();
+        if (crypt.openPandorasBox())
+        {
 
+        }
         
     }
     else
     {
-        std::cout << "\nCreate a new Pandora's Box\n";
+        printw("\nCreate a new Pandora's Box\n"); refresh();
         this->startFresh();
-
         crypt.readSecrets();
-        crypt.openPandorasBox();
+
+        if (crypt.openPandorasBox())
+        {
+
+        }
+        
     }
-}
-void Interaction::getSecrets()
-{
 }
 void Interaction::startFresh()
 {
     //Get password
-    this->hideUserInput();
     crypt.getPassword();
-    this->showUserInput();
     //hash password
     crypt.hashPassword(crypt.password, crypt.hashedPassword);
     //create key
@@ -355,9 +352,6 @@ void Interaction::startFresh()
         // hash key
     file.storeSecrets(crypt.hashedPassword, crypt.hashedMasterKey, crypt.salt);
 }
-
-
-
 
 int main(void)
 {
