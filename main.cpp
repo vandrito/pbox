@@ -92,6 +92,8 @@ class Crypto{
         char *password = new char [50];
         char hashedPassword[crypto_pwhash_scryptsalsa208sha256_STRBYTES];
 
+        std::vector<std::vector<std::string>> entries;
+ 
         Crypto();
         ~Crypto();
 
@@ -127,6 +129,14 @@ void Crypto::clearMemory()
     sodium_memzero(this->salt, crypto_pwhash_scryptsalsa208sha256_SALTBYTES);
     sodium_memzero(this->password, 50);
     sodium_memzero(this->hashedPassword, crypto_pwhash_scryptsalsa208sha256_STRBYTES);
+
+    for (unsigned int i = 0; i < this->entries.size(); i++)
+    {
+        for (unsigned int j = 0; j < this->entries[i].size(); j++)
+        {
+            memset(&this->entries[i][j], 0xd0, this->entries[i][j].length());
+        }
+    }
 }
 int Crypto::pandorasBox()
 {
