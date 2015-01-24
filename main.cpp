@@ -18,12 +18,29 @@ union Convert{
     char ch;
     uint32_t num;
 }convert;
-struct Entry{
+
+class Entry{
 public:
     std::string title = "Qidj0yg<?lM_bD>IB:k5N?qIDJ~:qk&kuRtXG?.Rx!SL:x-00";
     std::string user = "Qidj0yg<?lM_bD>IB:k5N?qIDJ~:qk&kuRtXG?.Rx!SL:x-00";
     std::string pw = "Qidj0yg<?lM_bD>IB:k5N?qIDJ~:qk&kuRtXG?.Rx!SL:x-00";
+    std::string future = "Qidj0yg<?lM_bD>IB:k5N?qIDJ~:qk&kuRtXG?.Rx!SL:x-00";
+
+    Entry();
+    ~Entry();
 };
+Entry::Entry()
+{
+    randombytes((unsigned char*)title.c_str(), 50);
+    randombytes((unsigned char*)user.c_str(), 50);
+    randombytes((unsigned char*)pw.c_str(), 50);
+}
+Entry::~Entry()
+{
+    sodium_memzero((void *)this->title.c_str(), strlen(this->title.c_str()-1));
+    sodium_memzero((void *)this->user.c_str(), strlen(this->user.c_str()-1));
+    sodium_memzero((void *)this->pw.c_str(), strlen(this->pw.c_str()-1));
+}
 
 /****************************************************
 *
@@ -134,18 +151,6 @@ void Crypto::clearMemory()
     sodium_memzero(this->salt, crypto_pwhash_scryptsalsa208sha256_SALTBYTES);
     sodium_memzero(this->password, 50);
     sodium_memzero(this->hashedPassword, crypto_pwhash_scryptsalsa208sha256_STRBYTES);
-
-    if (this->entries.size() > 0)
-    {
-        for (unsigned int i = 0; i < this->entries.size(); i++)
-        {
-            sodium_memzero((void *)this->entries[i].title.c_str(), strlen(this->entries[i].title.c_str()-1));
-            sodium_memzero((void *)this->entries[i].user.c_str(), strlen(this->entries[i].user.c_str()-1));
-            sodium_memzero((void *)this->entries[i].pw.c_str(), strlen(this->entries[i].pw.c_str()-1));
-            
-        }
-    }
-
 }
 int Crypto::pandorasBox()
 {
@@ -318,6 +323,8 @@ class Interaction{
         void exit();
         void newEntry();
         void listEntries();
+        void editEntry();
+        void deleteEntry();
 };
 
 
@@ -413,9 +420,19 @@ void Interaction::commandPrompt()
         this->newEntry();
         this->commandPrompt();
     }
-    else if (this->checkCommand(command, "list"))
+    else if (this->checkCommand(command, "list") || this->checkCommand(command, "ls"))
     {
         this->listEntries();
+        this->commandPrompt();
+    }
+    else if (this->checkCommand(command, "edit"))
+    {
+        this->editEntry();
+        this->commandPrompt();
+    }
+    else if (this->checkCommand(command, "delete"))
+    {
+        this->deleteEntry();
         this->commandPrompt();
     }
     else if (this->checkCommand(command, "exit"))
@@ -447,14 +464,7 @@ void Interaction::newEntry()
     printw("\nPassword> ");refresh();
     getstr((char *)temp.pw.c_str());
 
-    refresh();
-
     crypt.entries.push_back(temp);
-
-    sodium_memzero((void *)temp.title.c_str(), strlen(temp.title.c_str()-1));
-    sodium_memzero((void *)temp.user.c_str(), strlen(temp.user.c_str()-1));
-    sodium_memzero((void *)temp.pw.c_str(), strlen(temp.pw.c_str()-1));
-
 }
 void Interaction::listEntries()
 {
@@ -480,13 +490,130 @@ void Interaction::listEntries()
     char t[1];
     getstr(t);
 }
+void Interaction::editEntry()
+{
+    clear();refresh();
+    printw("\nChoose an entry to EDIT <0 to exit, ENTER to keep old data>\n\n");
+
+    if (crypt.entries.size() == 0)
+    {
+        printw("No Entries\n");
+    }
+    else
+    {
+        // printw("\t  %s\t\t\t%s\t\t%s", "Title", "Username", "Password\n\n");
+        
+        for (unsigned int i = 0; i < crypt.entries.size(); i++)
+        {
+            printw("\t%i: ", i+1);
+            printw("%s\t\t%s\t\t%s", crypt.entries[i].title.c_str(), crypt.entries[i].user.c_str(), crypt.entries[i].pw.c_str());
+            printw("\n");
+        }
+    }
+    printw("\n> ");refresh();
+
+    char temp[8];
+    getstr(temp);
+
+    unsigned int entry = strtol(temp, NULL, 10);
+
+    if (entry < 1 || entry > crypt.entries.size())
+    {
+        //Do nothing to finish if statement in commandPrompt()
+    }
+    else
+    {
+        entry--;
+        clear();
+        refresh();
+        std::string temp;
+        char enter[] = "";
+
+        printw("\nOld Title> %s", crypt.entries[entry].title.c_str());
+        printw("\nNew Title> ");refresh();
+        getstr((char *)temp.c_str());
+        if (memcmp ( temp.c_str(), enter, sizeof(enter) ) == 0)
+        {
+            //Keep old entry
+        }
+        else
+        {
+            crypt.entries[entry].title = temp.c_str();
+            // getstr((char *)crypt.entries[entry].title.c_str());
+        }
+
+        printw("\nOld User> %s", crypt.entries[entry].user.c_str());
+        printw("\nNew User> ");refresh();
+        getstr((char *)temp.c_str());
+        if (memcmp ( temp.c_str(), enter, sizeof(enter) ) == 0)
+        {
+            //Keep old entry
+        }
+        else
+        {
+            crypt.entries[entry].user = temp.c_str();
+            // getstr((char *)crypt.entries[entry].title.c_str());
+        }
+
+
+        printw("\nOld Password> %s", crypt.entries[entry].pw.c_str());
+        printw("\nNew Password> ");refresh();
+        getstr((char *)temp.c_str());
+        if (memcmp ( temp.c_str(), enter, sizeof(enter) ) == 0)
+        {
+            //Keep old entry
+        }
+        else
+        {
+            crypt.entries[entry].pw = temp.c_str();
+            // getstr((char *)crypt.entries[entry].title.c_str());
+        }
+
+    }
+}
+void Interaction::deleteEntry()
+{
+    clear();refresh();
+    printw("\nChoose an entry to DELETE <0 to exit>\n\n");
+
+    if (crypt.entries.size() == 0)
+    {
+        printw("No Entries\n");
+    }
+    else
+    {
+        for (unsigned int i = 0; i < crypt.entries.size(); i++)
+        {
+            printw("\t%i: ", i+1);
+            printw("%s\t\t%s\t\t%s", crypt.entries[i].title.c_str(), crypt.entries[i].user.c_str(), crypt.entries[i].pw.c_str());
+            printw("\n");
+        }
+    }
+    printw("\n> ");refresh();
+
+    char temp[8];
+    getstr(temp);
+
+    unsigned int entry = strtol(temp, NULL, 10);
+
+    if (entry < 1 || entry > crypt.entries.size())
+    {
+        //Do nothing to finish if statement in commandPrompt();
+    }
+    else
+    {
+        entry--;
+        crypt.entries.erase(crypt.entries.begin() + entry);
+    }
+}
 
 
 
 
 void exitGracefully(int sig)
 {
-    //Nothing here to block Ctrl+c and Ctrl+z
+    clear();refresh();
+    printw("That is an unsafe operation");refresh();
 }
 int main(void)
 {
