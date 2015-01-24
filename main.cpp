@@ -15,9 +15,15 @@
 #include <sodium.h>
 
 union Convert{
-            char ch;
-            uint32_t num;
-        }convert;
+    char ch;
+    uint32_t num;
+}convert;
+struct Entry{
+public:
+    std::string title = "Qidj0yg<?lM_bD>IB:k5N?qIDJ~:qk&kuRtXG?.Rx!SL:x-00";
+    std::string user = "Qidj0yg<?lM_bD>IB:k5N?qIDJ~:qk&kuRtXG?.Rx!SL:x-00";
+    std::string pw = "Qidj0yg<?lM_bD>IB:k5N?qIDJ~:qk&kuRtXG?.Rx!SL:x-00";
+};
 
 /****************************************************
 *
@@ -73,7 +79,6 @@ void File::storeSecrets(const char *pw, const char *k, const unsigned char *s)
     of.close();
 }
 
-
 /****************************************************
 *
 *                      CRYPTO
@@ -92,7 +97,7 @@ class Crypto{
         char *password = new char [50];
         char hashedPassword[crypto_pwhash_scryptsalsa208sha256_STRBYTES];
 
-        std::vector<std::vector<std::string>> entries;
+        std::vector<Entry> entries;
  
         Crypto();
         ~Crypto();
@@ -130,13 +135,17 @@ void Crypto::clearMemory()
     sodium_memzero(this->password, 50);
     sodium_memzero(this->hashedPassword, crypto_pwhash_scryptsalsa208sha256_STRBYTES);
 
-    for (unsigned int i = 0; i < this->entries.size(); i++)
+    if (this->entries.size() > 0)
     {
-        for (unsigned int j = 0; j < this->entries[i].size(); j++)
+        for (unsigned int i = 0; i < this->entries.size(); i++)
         {
-            memset(&this->entries[i][j], 0xd0, this->entries[i][j].length());
+            sodium_memzero((void *)this->entries[i].title.c_str(), strlen(this->entries[i].title.c_str()-1));
+            sodium_memzero((void *)this->entries[i].user.c_str(), strlen(this->entries[i].user.c_str()-1));
+            sodium_memzero((void *)this->entries[i].pw.c_str(), strlen(this->entries[i].pw.c_str()-1));
+            
         }
     }
+
 }
 int Crypto::pandorasBox()
 {
@@ -288,9 +297,6 @@ int Crypto::openPandorasBox()
     }
 }
 
-
-
-
 /****************************************************
 *
 *                   INTERACTION
@@ -300,6 +306,7 @@ class Interaction{
     private:
         Crypto crypt;
         File file;
+        
     public:
         Interaction();
         ~Interaction();
@@ -309,6 +316,8 @@ class Interaction{
         int checkCommand(std::string in, const char *test);
         void commandPrompt();
         void exit();
+        void newEntry();
+        void listEntries();
 };
 
 
@@ -399,6 +408,16 @@ void Interaction::commandPrompt()
         getstr(temp);
         this->commandPrompt();
     }
+    else if (this->checkCommand(command, "new"))
+    {
+        this->newEntry();
+        this->commandPrompt();
+    }
+    else if (this->checkCommand(command, "list"))
+    {
+        this->listEntries();
+        this->commandPrompt();
+    }
     else if (this->checkCommand(command, "exit"))
     {
         this->exit();
@@ -412,6 +431,54 @@ void Interaction::exit()
 {
     //Empty to let program exit normally
     //Need to call destructors to clear memory
+}
+void Interaction::newEntry()
+{
+    clear();refresh();
+    printw("\nNew Entry\n");
+
+    Entry temp;
+    printw("Title> ");refresh();
+    getstr((char *)temp.title.c_str());
+
+    printw("\nUser> ");refresh();
+    getstr((char *)temp.user.c_str());
+
+    printw("\nPassword> ");refresh();
+    getstr((char *)temp.pw.c_str());
+
+    refresh();
+
+    crypt.entries.push_back(temp);
+
+    sodium_memzero((void *)temp.title.c_str(), strlen(temp.title.c_str()-1));
+    sodium_memzero((void *)temp.user.c_str(), strlen(temp.user.c_str()-1));
+    sodium_memzero((void *)temp.pw.c_str(), strlen(temp.pw.c_str()-1));
+
+}
+void Interaction::listEntries()
+{
+    clear();refresh();
+    printw("\nListing Entries\n\n");
+
+    if (crypt.entries.size() == 0)
+    {
+        printw("No Entries\n");
+    }
+    else
+    {
+        // printw("\t  %s\t\t\t%s\t\t%s", "Title", "Username", "Password\n\n");
+        
+        for (unsigned int i = 0; i < crypt.entries.size(); i++)
+        {
+            printw("\t%i: ", i+1);
+            printw("%s\t\t%s\t\t%s", crypt.entries[i].title.c_str(), crypt.entries[i].user.c_str(), crypt.entries[i].pw.c_str());
+            printw("\n");
+        }
+    }
+    refresh();
+    char t[1];
+    getstr(t);
 }
 
 
