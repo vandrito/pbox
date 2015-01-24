@@ -364,7 +364,7 @@ int Interaction::checkCommand(std::string in, const char *test)
 
     // printw("%s %i\n", in.c_str(), strlen(in.c_str()));
 
-    for (unsigned int i = 0;  i < strlen(in.c_str()); i++)
+    for (unsigned int i = 0;  i < strlen(test); i++)
     {
         if (in[i] != test[i])
         {
@@ -374,7 +374,6 @@ int Interaction::checkCommand(std::string in, const char *test)
     }
     return equal;
 }
-
 void Interaction::commandPrompt()
 {
     clear();refresh();
@@ -405,9 +404,19 @@ void Interaction::exit()
     //Need to call destructors to clear memory
 }
 
+
+
+
+void exitGracefully(int sig)
+{
+    //Nothing here to block Ctrl+c and Ctrl+z
+}
 int main(void)
 {
-    Interaction prompt;
+    signal(SIGINT, exitGracefully);
+    signal(SIGTSTP, exitGracefully);
+    Interaction *prompt = new Interaction;
+    delete prompt;
 
     return 0;
 }
