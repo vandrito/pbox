@@ -9,6 +9,7 @@
 #include <vector>
 // #include <climits>
 // #include <sys/stat.h>
+#include <signal.h>
 #include <ncurses.h>
 
 #include <sodium.h>
@@ -113,6 +114,9 @@ Crypto::Crypto()
 }
 Crypto::~Crypto()
 {
+    std::ofstream out("zzzSuccessfulExit");
+    out << "Test";
+    out.close();
     this->clearMemory();
 }
 void Crypto::clearMemory()
@@ -238,9 +242,8 @@ void Crypto::readSecrets()
         this->salt[i] = final[i];
     }
 
-    std::cout << "\nfinal: " << s <<"\n";
-    std::cout << "\nfinal: " << final <<"\n";
-
+    // std::cout << "\nfinal: " << s <<"\n";
+    // std::cout << "\nfinal: " << final <<"\n";
     inf.close();
 }
 int Crypto::openPandorasBox()
@@ -253,8 +256,6 @@ int Crypto::openPandorasBox()
     {
         printw("\nIncorrect Password"); refresh();
         this->getPassword();
-        this->openPandorasBox();
-        return 0;
     }
 
     //create testKey with password and salt
@@ -266,11 +267,13 @@ int Crypto::openPandorasBox()
         strlen((const char *)this->testKey)) != 0) 
     {
         printw("\nKeys Don't match\n"); refresh();
+        char temp[10];
+        getstr(temp);
         return 0;
     }
     else
     {
-        printw("\nKeys match!\n"); refresh();
+        printw("\nWelcome, Master!\n"); refresh();
         return 1;
     }
 }
@@ -293,6 +296,9 @@ class Interaction{
 
         void startUp();
         void startFresh();
+        int checkCommand(std::string in, const char *test);
+        void commandPrompt();
+        void exit();
 };
 
 
@@ -311,6 +317,7 @@ Interaction::~Interaction()
 }
 void Interaction::startUp()
 {
+    //If we already have a key
     if (crypt.pandorasBox())
     {
         printw("\nOpen Pandora's Box\n"); refresh();
@@ -319,10 +326,10 @@ void Interaction::startUp()
         crypt.readSecrets();
         if (crypt.openPandorasBox())
         {
-
+            this->commandPrompt();
         }
-        
     }
+    //If there is no key. Let's start fresh
     else
     {
         printw("\nCreate a new Pandora's Box\n"); refresh();
@@ -331,9 +338,8 @@ void Interaction::startUp()
 
         if (crypt.openPandorasBox())
         {
-
+            this->commandPrompt();
         }
-        
     }
 }
 void Interaction::startFresh()
@@ -352,11 +358,56 @@ void Interaction::startFresh()
         // hash key
     file.storeSecrets(crypt.hashedPassword, crypt.hashedMasterKey, crypt.salt);
 }
+int Interaction::checkCommand(std::string in, const char *test)
+{
+    bool equal = true;
+
+    // printw("%s %i\n", in.c_str(), strlen(in.c_str()));
+
+    for (unsigned int i = 0;  i < strlen(in.c_str()); i++)
+    {
+        if (in[i] != test[i])
+        {
+            equal = false;
+            break;
+        }
+    }
+    return equal;
+}
+
+void Interaction::commandPrompt()
+{
+    clear();refresh();
+    printw("Enter a Command <h for help>\n> ");refresh();
+    std::string command;
+    getstr((char *)command.c_str());
+
+    if (this->checkCommand(command, "h"))
+    {
+        clear();refresh();
+        printw("this is the help dialog\n");refresh();
+        char temp[10];
+        getstr(temp);
+        this->commandPrompt();
+    }
+    else if (this->checkCommand(command, "exit"))
+    {
+        this->exit();
+    }
+    else
+    {
+        this->commandPrompt();
+    }
+}
+void Interaction::exit()
+{
+    //Empty to let program exit normally
+    //Need to call destructors to clear memory
+}
 
 int main(void)
 {
     Interaction prompt;
-    
 
     return 0;
 }
