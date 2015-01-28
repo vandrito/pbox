@@ -30,9 +30,9 @@ public:
 };
 Entry::Entry()
 {
-    randombytes((unsigned char*)this->title.c_str(), 50);
-    randombytes((unsigned char*)this->user.c_str(), 50);
-    randombytes((unsigned char*)this->pw.c_str(), 50);
+    // randombytes((unsigned char*)this->title.c_str(), 50);
+    // randombytes((unsigned char*)this->user.c_str(), 50);
+    // randombytes((unsigned char*)this->pw.c_str(), 50);
 }
 Entry::~Entry()
 {
@@ -235,8 +235,18 @@ void Crypto::getPassword()
 {
     printw("\nPassword: "); refresh();
     noecho();
-    getstr(this->password);
+    getnstr(this->password, 50);
     echo();
+
+    while (strlen(this->password) > 49)
+    {
+        clear();refresh();
+        printw("\nPassword must be shorter than 50 characters\n");
+        printw("\nPassword: "); refresh();
+        noecho();
+        getnstr(this->password, 50);
+        echo();
+    }
 
     clear();refresh();
 }
@@ -488,12 +498,12 @@ class Interaction{
         void startFresh();
         int checkCommand(std::string in, const char *test);
         void commandPrompt();
-        void exit();
         void newEntry();
         void listEntries();
         void editEntry();
         void deleteEntry();
         void helpDialog();
+        void exit();
 };
 
 
@@ -618,54 +628,72 @@ void Interaction::commandPrompt()
         this->commandPrompt();
     }
 }
-void Interaction::exit()
-{
-    //Empty to let program exit normally
-    //Need to call destructors to clear memory
-}
+
 void Interaction::newEntry()
 {
-    Entry temp;
+    Entry tempEntry;
     char enter[] = "";
-    std::string tempInput = "<NA>";
+    std::string tempInput;
 
     clear();refresh();
     printw("\nNew Entry\n");
 
     printw("Title> ");refresh();
-    getstr((char *)tempInput.c_str());
+    getnstr((char *)tempInput.c_str(),49);
     if (memcmp ( tempInput.c_str(), enter, sizeof(enter) ) == 0)
     {
-        strcpy((char *)temp.title.c_str(), "<NA>");
+        strcpy((char *)tempEntry.title.c_str(), "<NA>");
     }
     else
     {
-        strcpy((char *)temp.title.c_str(), tempInput.c_str());
+        while(strlen(tempInput.c_str()) > 50)
+        {
+            clear();refresh();
+            printw("\nMust be shorter than 50 characters\n");
+            printw("Title> ");refresh();
+            getnstr((char *)tempInput.c_str(),49);
+        }
+        strcpy((char *)tempEntry.title.c_str(), tempInput.c_str());
     }
 
     printw("\nUser> ");refresh();
-    getstr((char *)tempInput.c_str());
+    getnstr((char *)tempInput.c_str(),49);
     if (memcmp ( tempInput.c_str(), enter, sizeof(enter) ) == 0)
     {
-        strcpy((char *)temp.user.c_str(), "<NA>");
+        strcpy((char *)tempEntry.user.c_str(), "<NA>");
     }
     else
     {
-        strcpy((char *)temp.user.c_str(), tempInput.c_str());
+        while(strlen(tempInput.c_str()) > 50)
+        {
+            clear();refresh();
+            printw("\nMust be shorter than 50 characters\n");
+            printw("User> ");refresh();
+            getnstr((char *)tempInput.c_str(),49);
+        }
+        strcpy((char *)tempEntry.user.c_str(), tempInput.c_str());
     }
 
     printw("\nPassword> ");refresh();
-    getstr((char *)tempInput.c_str());
+    getnstr((char *)tempInput.c_str(),49);
     if (memcmp ( tempInput.c_str(), enter, sizeof(enter) ) == 0)
     {
-        strcpy((char *)temp.pw.c_str(), "<NA>");
+        strcpy((char *)tempEntry.pw.c_str(), "<NA>");
     }
     else
     {
-        strcpy((char *)temp.pw.c_str(), tempInput.c_str());
+        while(strlen(tempInput.c_str()) > 50)
+        {
+            clear();refresh();
+            printw("\nMust be shorter than 50 characters\n");
+            printw("Password> ");refresh();
+            getnstr((char *)tempInput.c_str(),49);
+        }
+        strcpy((char *)tempEntry.pw.c_str(), tempInput.c_str());
     }
+    tempInput = "00000000000000000000000000000000000000000000000000";
 
-    crypt.entries.push_back(temp);
+    crypt.entries.push_back(tempEntry);
 }
 void Interaction::listEntries()
 {
@@ -692,7 +720,7 @@ void Interaction::listEntries()
 void Interaction::editEntry()
 {
     clear();refresh();
-    printw("\nChoose an entry to EDIT <0 to exit, ENTER to keep old data>\n\n");
+    printw("\nChoose an entry to EDIT <0 to exit>\n\n");
 
     if (crypt.entries.size() == 0)
     {
@@ -709,10 +737,10 @@ void Interaction::editEntry()
     }
     printw("\n> ");refresh();
 
-    char temp[8];
-    getstr(temp);
+    std::string t;
+    getstr((char *)t.c_str());
 
-    unsigned int entry = strtol(temp, NULL, 10);
+    unsigned int entry = strtol((const char *)t.c_str(), NULL, 10);
 
     if (entry < 1 || entry > crypt.entries.size())
     {
@@ -726,6 +754,8 @@ void Interaction::editEntry()
         std::string temp;
         char enter[] = "";
 
+        clear();refresh();
+        printw("<Enter> to keep old data\n");
         printw("\nOld Title> %s", crypt.entries[entry].title.c_str());
         printw("\nNew Title> ");refresh();
         getstr((char *)temp.c_str());
@@ -735,9 +765,19 @@ void Interaction::editEntry()
         }
         else
         {
+            while(strlen(temp.c_str()) > 50)
+            {
+                clear();refresh();
+                printw("\nMust be shorter than 50 characters\n");
+                printw("\nOld Title> %s", crypt.entries[entry].title.c_str());
+                printw("\nNew Title> ");refresh();
+                getstr((char *)temp.c_str());
+            }
             crypt.entries[entry].title = temp.c_str();
         }
 
+        clear();refresh();
+        printw("<Enter> to keep old data\n");
         printw("\nOld User> %s", crypt.entries[entry].user.c_str());
         printw("\nNew User> ");refresh();
         getstr((char *)temp.c_str());
@@ -747,10 +787,19 @@ void Interaction::editEntry()
         }
         else
         {
+            while(strlen(temp.c_str()) > 50)
+            {
+                clear();refresh();
+                printw("\nMust be shorter than 50 characters\n");
+                printw("\nOld User> %s", crypt.entries[entry].user.c_str());
+                printw("\nNew User> ");refresh();
+                getstr((char *)temp.c_str());
+            }
             crypt.entries[entry].user = temp.c_str();
         }
 
-
+        clear();refresh();
+        printw("<Enter> to keep old data\n");
         printw("\nOld Password> %s", crypt.entries[entry].pw.c_str());
         printw("\nNew Password> ");refresh();
         getstr((char *)temp.c_str());
@@ -760,9 +809,17 @@ void Interaction::editEntry()
         }
         else
         {
+            while(strlen(temp.c_str()) > 50)
+            {
+                clear();refresh();
+                printw("\nMust be shorter than 50 characters\n");
+                printw("\nOld Password> %s", crypt.entries[entry].pw.c_str());
+                printw("\nNew Password> ");refresh();
+                getstr((char *)temp.c_str());
+            }
             crypt.entries[entry].pw = temp.c_str();
         }
-
+        temp = "00000000000000000000000000000000000000000000000000";
     }
 }
 void Interaction::deleteEntry()
@@ -804,13 +861,18 @@ void Interaction::helpDialog()
 {
     clear();refresh();
     printw("List of Commands\n\n");
-    printw("new - Create a new entry\n");
-    printw("edit - Edit an existing entry\n");
-    printw("delete,del - Remove an existing entry\n");
-    printw("list,ls - List current entries");refresh();
+    printw("new            Create a new entry\n");
+    printw("edit           Edit an existing entry\n");
+    printw("delete,del     Remove an existing entry\n");
+    printw("list,ls        List current entries");refresh();
 
     char t[1];
     getstr(t);
+}
+void Interaction::exit()
+{
+    //Empty to let program exit normally
+    //Need to call destructors to clear memory
 }
 
 
