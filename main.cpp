@@ -7,6 +7,7 @@
 // #include <cstdio>
 // #include <cctype>
 #include <vector>
+#include <algorithm>
 // #include <climits>
 // #include <sys/stat.h>
 #include <signal.h>
@@ -27,6 +28,10 @@ public:
 
     Entry();
     ~Entry();
+    bool operator()(const Entry& x, const Entry&y) const
+    {
+        return x.title < y.title;
+    }
 };
 Entry::Entry()
 {
@@ -503,6 +508,7 @@ class Interaction{
         void getPassword(int entry);
         void editEntry();
         void deleteEntry();
+        void getEntry();
         void helpDialog();
         void exit();
 };
@@ -620,6 +626,11 @@ void Interaction::commandPrompt()
         file.writeList(crypt.testKey, crypt.entries);
         this->commandPrompt();
     }
+    else if (this->checkCommand(command, "get"))
+    {
+        this->getEntry();
+        this->commandPrompt();
+    }
     else if (this->checkCommand(command, "exit"))
     {
         this->exit();
@@ -695,6 +706,8 @@ void Interaction::newEntry()
     tempInput = "00000000000000000000000000000000000000000000000000";
 
     crypt.entries.push_back(tempEntry);
+    std::sort (crypt.entries.begin(), crypt.entries.end(), Entry());
+
 }
 void Interaction::getPassword(int entry)
 {
@@ -909,6 +922,7 @@ void Interaction::editEntry()
                         crypt.entries[ii].pw = temp.c_str();
                     }
                     temp = "00000000000000000000000000000000000000000000000000";
+                    std::sort(crypt.entries.begin(), crypt.entries.end(), Entry());
                 }
                 break;
             }
@@ -961,6 +975,34 @@ void Interaction::deleteEntry()
         crypt.entries.erase(crypt.entries.begin() + entry);
     }
 }
+void Interaction::getEntry()
+{
+    clear();refresh();
+    printw("Get Entry\n\n");
+    printw("> ");refresh();
+
+    char enter[] = "";
+    std::string entry;
+    getstr((char *)entry.c_str());
+
+    if (memcmp ( entry.c_str(), enter, sizeof(enter) ) == 0)
+    {
+        //Do nothing to go back to command prompt
+    }
+    else
+    {
+        for (unsigned int i = 0; i < crypt.entries.size(); i++)
+        {
+            if (crypt.entries[i].title.find((const char *)entry.c_str(), 0) != std::string::npos)
+            {
+                this->getPassword(i);
+
+                break;
+            }
+        }
+    }
+
+}
 void Interaction::helpDialog()
 {
     clear();refresh();
@@ -968,7 +1010,9 @@ void Interaction::helpDialog()
     printw("new            Create a new entry\n");
     printw("edit           Edit an existing entry\n");
     printw("delete,del     Remove an existing entry\n");
-    printw("list,ls        List current entries");refresh();
+    printw("list,ls        List current entries\n");
+    printw("get            Get an entry and view it\n");
+    printw("exit           Exit application");refresh();
 
     char t[1];
     getstr(t);
