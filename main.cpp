@@ -45,9 +45,9 @@ Entry::~Entry()
     this->user = "00000000000000000000000000000000000000000000000000";
     this->pw = "00000000000000000000000000000000000000000000000000";
     //When creating new entries, the memzero function borks everything up
-    // sodium_memzero((void *)this->title.c_str(), strlen(this->title.c_str()-1));
-    // sodium_memzero((void *)this->user.c_str(), strlen(this->user.c_str()-1));
-    // sodium_memzero((void *)this->pw.c_str(), strlen(this->pw.c_str()-1));
+    sodium_memzero((void *)this->title.c_str(), strlen(this->title.c_str()-1));
+    sodium_memzero((void *)this->user.c_str(), strlen(this->user.c_str()-1));
+    sodium_memzero((void *)this->pw.c_str(), strlen(this->pw.c_str()-1));
 }
 
 /****************************************************
@@ -367,8 +367,8 @@ int Crypto::openPandorasBox()
         strlen((const char *)this->testKey)) != 0) 
     {
         printw("\nKeys Don't match\n"); refresh();
-        char t[1];
-        getnstr(t, 1);
+        int t = getch();
+        t++;
         sodium_memzero(this->password, 50);
         return 0;
     }
@@ -521,8 +521,8 @@ Interaction::Interaction()
     if (sodium_init() == -1)
     {
         printw("Sodium couldn't initialize\n"); refresh();
-        char t[1];
-        getnstr(t,1);
+        int t = getch();
+        t++;
     }
     initscr();
     this->startUp();
@@ -716,8 +716,8 @@ void Interaction::getPassword(int entry)
     clear();refresh();
     printw("\n\t   Title> %s\n\n\t    User> %s\n\n\tPassword> %s\n", crypt.entries[entry].title.c_str(), crypt.entries[entry].user.c_str(), crypt.entries[entry].pw.c_str());
 
-    char t[1];
-    getnstr(t,1);
+    int t = getch();
+    t++;
 }
 void Interaction::listEntries()
 {
@@ -770,6 +770,13 @@ void Interaction::listEntries()
                 std::string tempInput;
                 getnstr((char *)tempInput.c_str(), 49);
 
+
+
+                if ((int)strtol(tempInput.c_str(), NULL, 10) == '\n')
+                {
+                    break;
+                }
+
                 int ii = strtol(tempInput.c_str(), NULL, 10) - 1;
                 if ( ii < 0 || ii > (int)crypt.entries.size()-1)
                 {
@@ -777,6 +784,7 @@ void Interaction::listEntries()
                 }
                 else
                 {
+
                     this->getPassword(ii);
                 }
                 break;
@@ -790,7 +798,14 @@ void Interaction::listEntries()
         }
         else if (pos > max-10)
         {
-            pos = max-10;
+            if (max < 10)
+            {
+                pos = 0;
+            }
+            else
+            {
+                pos = max-10;
+            }
         }
 
     }
@@ -937,7 +952,14 @@ void Interaction::editEntry()
         }
         else if (pos > max-10)
         {
-            pos = max-10;
+            if (max < 10)
+            {
+                pos = 0;
+            }
+            else
+            {
+                pos = max-10;
+            }
         }
 
     }
@@ -1014,7 +1036,14 @@ void Interaction::deleteEntry()
         }
         else if (pos > max-10)
         {
-            pos = max-10;
+            if (max < 10)
+            {
+                pos = 0;
+            }
+            else
+            {
+                pos = max-10;
+            }
         }
     }
 }
@@ -1057,8 +1086,8 @@ void Interaction::helpDialog()
     printw("get            Get an entry and view it\n");
     printw("exit           Exit application");refresh();
 
-    char t[1];
-    getnstr(t,1);
+    int t = getch();
+    t++;
 }
 void Interaction::exit()
 {
