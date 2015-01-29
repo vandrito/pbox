@@ -366,9 +366,6 @@ int Crypto::openPandorasBox()
         this->hashedMasterKey, (const char *)this->testKey, 
         strlen((const char *)this->testKey)) != 0) 
     {
-        printw("\nKeys Don't match\n"); refresh();
-        int t = getch();
-        t++;
         sodium_memzero(this->password, 50);
         return 0;
     }
@@ -505,6 +502,7 @@ class Interaction{
         void startFresh();
         int checkCommand(std::string in, const char *test);
         void commandPrompt();
+        void pause();
         void newEntry();
         void listEntries();
         void showPassword(int entry);
@@ -522,8 +520,7 @@ Interaction::Interaction()
     if (sodium_init() == -1)
     {
         printw("Sodium couldn't initialize\n"); refresh();
-        int t = getch();
-        t++;
+        this->pause();
     }
     initscr();
     this->startUp();
@@ -638,7 +635,7 @@ void Interaction::commandPrompt()
     {
         this->exit();
     }
-    else if (this->checkCommand(command, "change password"))
+    else if (this->checkCommand(command, "change") || this->checkCommand(command, "change password"))
     {
         this->changePassword();
         this->commandPrompt();
@@ -648,7 +645,11 @@ void Interaction::commandPrompt()
         this->commandPrompt();
     }
 }
-
+void Interaction::pause()
+{
+    int t = getch();
+    t++;
+}
 void Interaction::newEntry()
 {
     Entry tempEntry;
@@ -722,8 +723,7 @@ void Interaction::showPassword(int entry)
     clear();refresh();
     printw("\n\t   Title> %s\n\n\t    User> %s\n\n\tPassword> %s\n", crypt.entries[entry].title.c_str(), crypt.entries[entry].user.c_str(), crypt.entries[entry].pw.c_str());
 
-    int t = getch();
-    t++;
+    this->pause();
 }
 void Interaction::listEntries()
 {
@@ -1090,10 +1090,10 @@ void Interaction::helpDialog()
     printw("delete,del     Remove an existing entry\n");
     printw("list,ls        List current entries\n");
     printw("get            Get an entry and view it\n");
+    printw("change         Change password\n");
     printw("exit           Exit application");refresh();
 
-    int t = getch();
-    t++;
+    this->pause();
 }
 void Interaction::changePassword()
 {
