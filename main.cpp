@@ -367,13 +367,15 @@ int Crypto::openPandorasBox()
         strlen((const char *)this->testKey)) != 0) 
     {
         printw("\nKeys Don't match\n"); refresh();
-        char temp[10];
-        getstr(temp);
+        char t[1];
+        getnstr(t, 1);
+        sodium_memzero(this->password, 50);
         return 0;
     }
     else
     {
         printw("\nWelcome, Master!\n"); refresh();
+        sodium_memzero(this->password, 50);
         return 1;
     }
 }
@@ -520,7 +522,7 @@ Interaction::Interaction()
     {
         printw("Sodium couldn't initialize\n"); refresh();
         char t[1];
-        getstr(t);
+        getnstr(t,1);
     }
     initscr();
     this->startUp();
@@ -596,7 +598,7 @@ void Interaction::commandPrompt()
     clear();refresh();
     printw("Enter a Command <h for help>\n> ");refresh();
     std::string command;
-    getstr((char *)command.c_str());
+    getnstr((char *)command.c_str(), 49);
 
     if (this->checkCommand(command, "h") || this->checkCommand(command, "help"))
     {
@@ -715,7 +717,7 @@ void Interaction::getPassword(int entry)
     printw("\n\t   Title> %s\n\n\t    User> %s\n\n\tPassword> %s\n", crypt.entries[entry].title.c_str(), crypt.entries[entry].user.c_str(), crypt.entries[entry].pw.c_str());
 
     char t[1];
-    getstr(t);
+    getnstr(t,1);
 }
 void Interaction::listEntries()
 {
@@ -766,7 +768,7 @@ void Interaction::listEntries()
                 // keypad(stdscr, FALSE);
                 printw("\nentry> ");refresh();
                 std::string tempInput;
-                getstr((char *)tempInput.c_str());
+                getnstr((char *)tempInput.c_str(), 49);
 
                 int ii = strtol(tempInput.c_str(), NULL, 10) - 1;
                 if ( ii < 0 || ii > (int)crypt.entries.size()-1)
@@ -842,7 +844,7 @@ void Interaction::editEntry()
                 // keypad(stdscr, FALSE);
                 printw("\nentry> ");refresh();
                 std::string tempInput;
-                getstr((char *)tempInput.c_str());
+                getnstr((char *)tempInput.c_str(), 49);
 
                 int ii = strtol(tempInput.c_str(), NULL, 10) - 1;
                 if ( ii < 0 || ii > (int)crypt.entries.size()-1)
@@ -860,7 +862,7 @@ void Interaction::editEntry()
                     printw("<Enter> to keep old data\n");
                     printw("\nOld Title> %s", crypt.entries[ii].title.c_str());
                     printw("\nNew Title> ");refresh();
-                    getstr((char *)temp.c_str());
+                    getnstr((char *)temp.c_str(), 49);
                     if (memcmp ( temp.c_str(), enter, sizeof(enter) ) == 0)
                     {
                         //Keep old entry
@@ -873,7 +875,7 @@ void Interaction::editEntry()
                             printw("\nMust be shorter than 50 characters\n");
                             printw("\nOld Title> %s", crypt.entries[ii].title.c_str());
                             printw("\nNew Title> ");refresh();
-                            getstr((char *)temp.c_str());
+                            getnstr((char *)temp.c_str(), 49);
                         }
                         crypt.entries[ii].title = temp.c_str();
                     }
@@ -882,7 +884,7 @@ void Interaction::editEntry()
                     printw("<Enter> to keep old data\n");
                     printw("\nOld User> %s", crypt.entries[ii].user.c_str());
                     printw("\nNew User> ");refresh();
-                    getstr((char *)temp.c_str());
+                    getnstr((char *)temp.c_str(), 49);
                     if (memcmp ( temp.c_str(), enter, sizeof(enter) ) == 0)
                     {
                         //Keep old entry
@@ -895,7 +897,7 @@ void Interaction::editEntry()
                             printw("\nMust be shorter than 50 characters\n");
                             printw("\nOld User> %s", crypt.entries[ii].user.c_str());
                             printw("\nNew User> ");refresh();
-                            getstr((char *)temp.c_str());
+                            getnstr((char *)temp.c_str(), 49);
                         }
                         crypt.entries[ii].user = temp.c_str();
                     }
@@ -904,7 +906,7 @@ void Interaction::editEntry()
                     printw("<Enter> to keep old data\n");
                     printw("\nOld Password> %s", crypt.entries[ii].pw.c_str());
                     printw("\nNew Password> ");refresh();
-                    getstr((char *)temp.c_str());
+                    getnstr((char *)temp.c_str(), 49);
                     if (memcmp ( temp.c_str(), enter, sizeof(enter) ) == 0)
                     {
                         //Keep old entry
@@ -917,7 +919,7 @@ void Interaction::editEntry()
                             printw("\nMust be shorter than 50 characters\n");
                             printw("\nOld Password> %s", crypt.entries[ii].pw.c_str());
                             printw("\nNew Password> ");refresh();
-                            getstr((char *)temp.c_str());
+                            getnstr((char *)temp.c_str(), 49);
                         }
                         crypt.entries[ii].pw = temp.c_str();
                     }
@@ -943,36 +945,77 @@ void Interaction::editEntry()
 void Interaction::deleteEntry()
 {
     clear();refresh();
-    printw("\nChoose an entry to DELETE <0 to exit>\n\n");
 
-    if (crypt.entries.size() == 0)
+    int max = crypt.entries.size();
+    int pos = 0;
+
+    int input;
+    while(input != 'q')
     {
-        printw("No Entries\n");
-    }
-    else
-    {
-        for (unsigned int i = 0; i < crypt.entries.size(); i++)
+        clear();refresh();
+        printw("Delete Entries\n\n<q> to exit, <up/down> to scroll, <enter> to choose entry to delete\n\n");
+        if (max < 1)
         {
-            printw("\t%i: ", i+1);
-            printw("%s\t\t%s\t\t%s", crypt.entries[i].title.c_str(), crypt.entries[i].user.c_str(), crypt.entries[i].pw.c_str());
-            printw("\n");
+            printw("No Entries");
         }
-    }
-    printw("\n> ");refresh();
+        else
+        {
+            int maxShow = pos + 10;
+            int counter = pos;
 
-    char temp[8];
-    getstr(temp);
+            if (maxShow > max)
+            {
+                maxShow = max;
+            }
+            for (;counter < maxShow; counter++)
+            {
+                printw("\t%i: %s\n", counter+1, crypt.entries[counter].title.c_str());
+            }
+        }
+        keypad(stdscr, TRUE);
+        input = getch();
+        switch (input)
+        {
+            case KEY_UP:
+            {
+                pos -= 10;
+                break;
+            }
+            case KEY_DOWN:
+            {
+                pos += 10;
+                break;
+            }
+            case '\n':
+            {
+                // keypad(stdscr, FALSE);
+                printw("\nentry> ");refresh();
+                std::string tempInput;
+                getnstr((char *)tempInput.c_str(),49);
 
-    unsigned int entry = strtol(temp, NULL, 10);
+                int ii = strtol(tempInput.c_str(), NULL, 10) - 1;
+                if ( ii < 0 || ii > (int)crypt.entries.size()-1)
+                {
+                    break;
+                }
+                else
+                {
+                    crypt.entries.erase(crypt.entries.begin() + ii);
+                    break;
+                }
+                break;
+            }
+        }
+        keypad(stdscr, FALSE);
 
-    if (entry < 1 || entry > crypt.entries.size())
-    {
-        //Do nothing to finish if statement in commandPrompt();
-    }
-    else
-    {
-        entry--;
-        crypt.entries.erase(crypt.entries.begin() + entry);
+        if (pos < 0)
+        {
+            pos = 0;
+        }
+        else if (pos > max-10)
+        {
+            pos = max-10;
+        }
     }
 }
 void Interaction::getEntry()
@@ -983,7 +1026,7 @@ void Interaction::getEntry()
 
     char enter[] = "";
     std::string entry;
-    getstr((char *)entry.c_str());
+    getnstr((char *)entry.c_str(), 49);
 
     if (memcmp ( entry.c_str(), enter, sizeof(enter) ) == 0)
     {
@@ -1015,7 +1058,7 @@ void Interaction::helpDialog()
     printw("exit           Exit application");refresh();
 
     char t[1];
-    getstr(t);
+    getnstr(t,1);
 }
 void Interaction::exit()
 {
