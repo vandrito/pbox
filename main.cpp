@@ -108,9 +108,6 @@ void File::writeList(const unsigned char *key, std::vector<Entry> &entries)
 {
     std::ofstream outfile(".list");
 
-    // unsigned char key[crypto_secretbox_KEYBYTES];
-    // randombytes_buf(key, sizeof key);
-
     for (unsigned int i = 0; i < entries.size(); i++)
     {
         //Write message length
@@ -122,10 +119,7 @@ void File::writeList(const unsigned char *key, std::vector<Entry> &entries)
         unsigned char nonce[crypto_secretbox_NONCEBYTES];
         while (sizeof nonce > strlen((const char *)nonce))
         {
-            for (unsigned int i = 0; i < sizeof nonce; i++)
-            {
-                nonce[i] = randombytes_random();
-            }
+            randombytes_buf(nonce, sizeof nonce);
         }
 
         for (unsigned int i = 0; i < sizeof nonce; i++)
@@ -152,8 +146,8 @@ void File::writeList(const unsigned char *key, std::vector<Entry> &entries)
             outfile << std::hex << convert.num << " ";
         }
         outfile << "\n";
-
-        // sodium_memzero(message, messageLength);
+        sodium_memzero(nonce, sizeof nonce);
+        sodium_memzero(message, messageLength);
     }
 
     outfile.close();
@@ -419,14 +413,14 @@ void Crypto::unlockList()
         {
             //Read data
             std::string hex = "0x";
-            std::string final = "";
+            std::string ciphertext = "";
 
             for (unsigned int i = 0; i < line.length(); i++)
             {
                 if (isspace(line[i]))
                 {
                     convert.num = strtol(hex.c_str(), NULL, 16);
-                    final += convert.ch;
+                    ciphertext += convert.ch;
                     hex = "0x";
                 }
                 else
@@ -436,9 +430,12 @@ void Crypto::unlockList()
             }
             int ciphertextLength = crypto_secretbox_MACBYTES + messageLength;
 
-            unsigned char decrypted[messageLength];
+            std::string decrypted;
 
-            if (crypto_secretbox_open_easy(decrypted, (unsigned char *)final.c_str(), ciphertextLength, nonce, this->testKey) != 0) {
+            if (crypto_secretbox_open_easy(
+                (unsigned char *)decrypted.c_str(), 
+                (unsigned char *)ciphertext.c_str(), 
+                ciphertextLength, nonce, this->testKey) != 0) {
             }
             else
             {
@@ -448,7 +445,7 @@ void Crypto::unlockList()
                     s+= decrypted[i];
                 }
                 std::string delimiter = "\n";
-                sodium_memzero(decrypted, sizeof decrypted);
+                sodium_memzero((char *)decrypted.c_str(), sizeof decrypted);
 
                 size_t pos = 0;
                 int l = 0;
@@ -463,7 +460,6 @@ void Crypto::unlockList()
                     }
                     else if (l == 1)
                     {
-
                         entry.user = token;
                         l++;
                     }
@@ -475,6 +471,7 @@ void Crypto::unlockList()
                     entry.pw += s[i];
                 }
                 this->entries.push_back(entry);
+                sodium_memzero((char *)s.c_str(), sizeof s);
             }
             linenum = 0;
         }
