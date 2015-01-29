@@ -500,6 +500,7 @@ class Interaction{
         void commandPrompt();
         void newEntry();
         void listEntries();
+        void getPassword(int entry);
         void editEntry();
         void deleteEntry();
         void helpDialog();
@@ -695,131 +696,234 @@ void Interaction::newEntry()
 
     crypt.entries.push_back(tempEntry);
 }
+void Interaction::getPassword(int entry)
+{
+    clear();refresh();
+    printw("\n\t   Title> %s\n\n\t    User> %s\n\n\tPassword> %s\n", crypt.entries[entry].title.c_str(), crypt.entries[entry].user.c_str(), crypt.entries[entry].pw.c_str());
+
+    char t[1];
+    getstr(t);
+}
 void Interaction::listEntries()
 {
     clear();refresh();
-    printw("\nListing Entries\n\n");
 
-    if (crypt.entries.size() == 0)
+    int max = crypt.entries.size();
+    int pos = 0;
+
+    int input;
+    while(input != 'q')
     {
-        printw("No Entries\n");
-    }
-    else
-    {
-        for (unsigned int i = 0; i < crypt.entries.size(); i++)
+        clear();refresh();
+        printw("Listing Entries\n\n<q> to exit, <up/down> to scroll, <enter> to choose entry to view\n\n");
+        if (max < 1)
         {
-            printw("\t%i: ", i+1);
-            printw("%s\t\t%s\t\t%s", crypt.entries[i].title.c_str(), crypt.entries[i].user.c_str(), crypt.entries[i].pw.c_str());
-            printw("\n");
+            printw("No Entries");
         }
+        else
+        {
+            int maxShow = pos + 10;
+            int counter = pos;
+
+            if (maxShow > max)
+            {
+                maxShow = max;
+            }
+            for (;counter < maxShow; counter++)
+            {
+                printw("\t%i: %s\n", counter+1, crypt.entries[counter].title.c_str());
+            }
+        }
+        keypad(stdscr, TRUE);
+        input = getch();
+        switch (input)
+        {
+            case KEY_UP:
+            {
+                pos -= 10;
+                break;
+            }
+            case KEY_DOWN:
+            {
+                pos += 10;
+                break;
+            }
+            case '\n':
+            {
+                // keypad(stdscr, FALSE);
+                printw("\nentry> ");refresh();
+                std::string tempInput;
+                getstr((char *)tempInput.c_str());
+
+                int ii = strtol(tempInput.c_str(), NULL, 10) - 1;
+                if ( ii < 0 || ii > (int)crypt.entries.size()-1)
+                {
+                    break;
+                }
+                else
+                {
+                    this->getPassword(ii);
+                }
+                break;
+            }
+        }
+        keypad(stdscr, FALSE);
+
+        if (pos < 0)
+        {
+            pos = 0;
+        }
+        else if (pos > max-10)
+        {
+            pos = max-10;
+        }
+
     }
-    refresh();
-    char t[1];
-    getstr(t);
 }
 void Interaction::editEntry()
 {
     clear();refresh();
-    printw("\nChoose an entry to EDIT <0 to exit>\n\n");
 
-    if (crypt.entries.size() == 0)
+    int max = crypt.entries.size();
+    int pos = 0;
+
+    int input;
+    while(input != 'q')
     {
-        printw("No Entries\n");
-    }
-    else
-    {
-        for (unsigned int i = 0; i < crypt.entries.size(); i++)
-        {
-            printw("\t%i: ", i+1);
-            printw("%s\t\t%s\t\t%s", crypt.entries[i].title.c_str(), crypt.entries[i].user.c_str(), crypt.entries[i].pw.c_str());
-            printw("\n");
-        }
-    }
-    printw("\n> ");refresh();
-
-    std::string t;
-    getstr((char *)t.c_str());
-
-    unsigned int entry = strtol((const char *)t.c_str(), NULL, 10);
-
-    if (entry < 1 || entry > crypt.entries.size())
-    {
-        //Do nothing to finish if statement in commandPrompt()
-    }
-    else
-    {
-        entry--;
-        clear();
-        refresh();
-        std::string temp;
-        char enter[] = "";
-
         clear();refresh();
-        printw("<Enter> to keep old data\n");
-        printw("\nOld Title> %s", crypt.entries[entry].title.c_str());
-        printw("\nNew Title> ");refresh();
-        getstr((char *)temp.c_str());
-        if (memcmp ( temp.c_str(), enter, sizeof(enter) ) == 0)
+        printw("Edit Entries\n\n<q> to exit, <up/down> to scroll, <enter> to choose entry to edit\n\n");
+        if (max < 1)
         {
-            //Keep old entry
+            printw("No Entries");
         }
         else
         {
-            while(strlen(temp.c_str()) > 50)
+            int maxShow = pos + 10;
+            int counter = pos;
+
+            if (maxShow > max)
             {
-                clear();refresh();
-                printw("\nMust be shorter than 50 characters\n");
-                printw("\nOld Title> %s", crypt.entries[entry].title.c_str());
-                printw("\nNew Title> ");refresh();
-                getstr((char *)temp.c_str());
+                maxShow = max;
             }
-            crypt.entries[entry].title = temp.c_str();
+            for (;counter < maxShow; counter++)
+            {
+                printw("\t%i: %s\n", counter+1, crypt.entries[counter].title.c_str());
+            }
+        }
+        keypad(stdscr, TRUE);
+        input = getch();
+        switch (input)
+        {
+            case KEY_UP:
+            {
+                pos -= 10;
+                break;
+            }
+            case KEY_DOWN:
+            {
+                pos += 10;
+                break;
+            }
+            case '\n':
+            {
+                // keypad(stdscr, FALSE);
+                printw("\nentry> ");refresh();
+                std::string tempInput;
+                getstr((char *)tempInput.c_str());
+
+                int ii = strtol(tempInput.c_str(), NULL, 10) - 1;
+                if ( ii < 0 || ii > (int)crypt.entries.size()-1)
+                {
+                    break;
+                }
+                else
+                {
+                    clear();
+                    refresh();
+                    std::string temp;
+                    char enter[] = "";
+
+                    clear();refresh();
+                    printw("<Enter> to keep old data\n");
+                    printw("\nOld Title> %s", crypt.entries[ii].title.c_str());
+                    printw("\nNew Title> ");refresh();
+                    getstr((char *)temp.c_str());
+                    if (memcmp ( temp.c_str(), enter, sizeof(enter) ) == 0)
+                    {
+                        //Keep old entry
+                    }
+                    else
+                    {
+                        while(strlen(temp.c_str()) > 50)
+                        {
+                            clear();refresh();
+                            printw("\nMust be shorter than 50 characters\n");
+                            printw("\nOld Title> %s", crypt.entries[ii].title.c_str());
+                            printw("\nNew Title> ");refresh();
+                            getstr((char *)temp.c_str());
+                        }
+                        crypt.entries[ii].title = temp.c_str();
+                    }
+
+                    clear();refresh();
+                    printw("<Enter> to keep old data\n");
+                    printw("\nOld User> %s", crypt.entries[ii].user.c_str());
+                    printw("\nNew User> ");refresh();
+                    getstr((char *)temp.c_str());
+                    if (memcmp ( temp.c_str(), enter, sizeof(enter) ) == 0)
+                    {
+                        //Keep old entry
+                    }
+                    else
+                    {
+                        while(strlen(temp.c_str()) > 50)
+                        {
+                            clear();refresh();
+                            printw("\nMust be shorter than 50 characters\n");
+                            printw("\nOld User> %s", crypt.entries[ii].user.c_str());
+                            printw("\nNew User> ");refresh();
+                            getstr((char *)temp.c_str());
+                        }
+                        crypt.entries[ii].user = temp.c_str();
+                    }
+
+                    clear();refresh();
+                    printw("<Enter> to keep old data\n");
+                    printw("\nOld Password> %s", crypt.entries[ii].pw.c_str());
+                    printw("\nNew Password> ");refresh();
+                    getstr((char *)temp.c_str());
+                    if (memcmp ( temp.c_str(), enter, sizeof(enter) ) == 0)
+                    {
+                        //Keep old entry
+                    }
+                    else
+                    {
+                        while(strlen(temp.c_str()) > 50)
+                        {
+                            clear();refresh();
+                            printw("\nMust be shorter than 50 characters\n");
+                            printw("\nOld Password> %s", crypt.entries[ii].pw.c_str());
+                            printw("\nNew Password> ");refresh();
+                            getstr((char *)temp.c_str());
+                        }
+                        crypt.entries[ii].pw = temp.c_str();
+                    }
+                    temp = "00000000000000000000000000000000000000000000000000";
+                }
+                break;
+            }
+        }
+        keypad(stdscr, FALSE);
+
+        if (pos < 0)
+        {
+            pos = 0;
+        }
+        else if (pos > max-10)
+        {
+            pos = max-10;
         }
 
-        clear();refresh();
-        printw("<Enter> to keep old data\n");
-        printw("\nOld User> %s", crypt.entries[entry].user.c_str());
-        printw("\nNew User> ");refresh();
-        getstr((char *)temp.c_str());
-        if (memcmp ( temp.c_str(), enter, sizeof(enter) ) == 0)
-        {
-            //Keep old entry
-        }
-        else
-        {
-            while(strlen(temp.c_str()) > 50)
-            {
-                clear();refresh();
-                printw("\nMust be shorter than 50 characters\n");
-                printw("\nOld User> %s", crypt.entries[entry].user.c_str());
-                printw("\nNew User> ");refresh();
-                getstr((char *)temp.c_str());
-            }
-            crypt.entries[entry].user = temp.c_str();
-        }
-
-        clear();refresh();
-        printw("<Enter> to keep old data\n");
-        printw("\nOld Password> %s", crypt.entries[entry].pw.c_str());
-        printw("\nNew Password> ");refresh();
-        getstr((char *)temp.c_str());
-        if (memcmp ( temp.c_str(), enter, sizeof(enter) ) == 0)
-        {
-            //Keep old entry
-        }
-        else
-        {
-            while(strlen(temp.c_str()) > 50)
-            {
-                clear();refresh();
-                printw("\nMust be shorter than 50 characters\n");
-                printw("\nOld Password> %s", crypt.entries[entry].pw.c_str());
-                printw("\nNew Password> ");refresh();
-                getstr((char *)temp.c_str());
-            }
-            crypt.entries[entry].pw = temp.c_str();
-        }
-        temp = "00000000000000000000000000000000000000000000000000";
     }
 }
 void Interaction::deleteEntry()
