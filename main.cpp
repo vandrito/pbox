@@ -240,16 +240,18 @@ void Crypto::getPassword()
 {
     printw("\nPassword: "); refresh();
     noecho();
-    getnstr(this->password, 50);
+    getstr(this->password);
     echo();
 
-    while (strlen(this->password) > 49)
+    char enter[] = "";
+
+    while (strlen(this->password) > 49 || memcmp( this->password, enter, sizeof(enter) ) == 0)
     {
         clear();refresh();
-        printw("\nPassword must be shorter than 50 characters\n");
+        printw("\nPassword must be shorter than 50 characters and greater than 0\n");
         printw("\nPassword: "); refresh();
         noecho();
-        getnstr(this->password, 50);
+        getstr(this->password);
         echo();
     }
 
@@ -344,8 +346,6 @@ void Crypto::readSecrets()
         this->salt[i] = final[i];
     }
 
-    // std::cout << "\nfinal: " << s <<"\n";
-    // std::cout << "\nfinal: " << final <<"\n";
     inf.close();
 }
 int Crypto::openPandorasBox()
@@ -507,11 +507,12 @@ class Interaction{
         void commandPrompt();
         void newEntry();
         void listEntries();
-        void getPassword(int entry);
+        void showPassword(int entry);
         void editEntry();
         void deleteEntry();
         void getEntry();
         void helpDialog();
+        void changePassword();
         void exit();
 };
 
@@ -637,6 +638,11 @@ void Interaction::commandPrompt()
     {
         this->exit();
     }
+    else if (this->checkCommand(command, "change password"))
+    {
+        this->changePassword();
+        this->commandPrompt();
+    }
     else
     {
         this->commandPrompt();
@@ -711,7 +717,7 @@ void Interaction::newEntry()
     std::sort (crypt.entries.begin(), crypt.entries.end(), Entry());
 
 }
-void Interaction::getPassword(int entry)
+void Interaction::showPassword(int entry)
 {
     clear();refresh();
     printw("\n\t   Title> %s\n\n\t    User> %s\n\n\tPassword> %s\n", crypt.entries[entry].title.c_str(), crypt.entries[entry].user.c_str(), crypt.entries[entry].pw.c_str());
@@ -785,7 +791,7 @@ void Interaction::listEntries()
                 else
                 {
 
-                    this->getPassword(ii);
+                    this->showPassword(ii);
                 }
                 break;
             }
@@ -1067,7 +1073,7 @@ void Interaction::getEntry()
         {
             if (crypt.entries[i].title.find((const char *)entry.c_str(), 0) != std::string::npos)
             {
-                this->getPassword(i);
+                this->showPassword(i);
 
                 break;
             }
@@ -1088,6 +1094,26 @@ void Interaction::helpDialog()
 
     int t = getch();
     t++;
+}
+void Interaction::changePassword()
+{
+    clear();refresh();
+    printw("Change Password\n");
+    //Get password
+    crypt.getPassword();
+    //hash password
+    crypt.hashPassword(crypt.password, crypt.hashedPassword);
+    //create key
+    crypt.createKey(crypt.password, crypt.masterKey);
+    //hash key
+    crypt.hashMasterKey(crypt.masterKey, crypt.hashedMasterKey);
+    //store 
+        // hash password
+        // salt
+        // hash key
+    file.storeSecrets(crypt.hashedPassword, crypt.hashedMasterKey, crypt.salt);
+    file.writeList(crypt.masterKey, crypt.entries);
+    sodium_memzero(crypt.masterKey, sizeof crypt.masterKey);
 }
 void Interaction::exit()
 {

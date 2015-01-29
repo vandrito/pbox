@@ -2,6 +2,9 @@ main.o
 main.old.cpp
 key.cpp
 .pandorasBox
+.pandorasBox.bak
 .list
+.list.bak
 test
 zzzSuccessfulExit
+
