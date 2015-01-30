@@ -1,5 +1,6 @@
 #include <iostream>
 #include <string>
+#include <sstream>
 #include <cstring>
 #include <fstream>
 #include <termios.h>
@@ -45,9 +46,9 @@ Entry::~Entry()
     this->user = "00000000000000000000000000000000000000000000000000";
     this->pw = "00000000000000000000000000000000000000000000000000";
     //When creating new entries, the memzero function borks everything up
-    sodium_memzero((void *)this->title.c_str(), strlen(this->title.c_str()-1));
-    sodium_memzero((void *)this->user.c_str(), strlen(this->user.c_str()-1));
-    sodium_memzero((void *)this->pw.c_str(), strlen(this->pw.c_str()-1));
+    sodium_memzero((void *)this->title.c_str(), strlen(this->title.c_str()));
+    sodium_memzero((void *)this->user.c_str(), strlen(this->user.c_str()));
+    sodium_memzero((void *)this->pw.c_str(), strlen(this->pw.c_str()));
 }
 
 /****************************************************
@@ -77,29 +78,26 @@ File::~File()
 void File::storeSecrets(const char *pw, const char *k, const unsigned char *s)
 {
     std::ofstream of(".pandorasBox");
-    // std::cout << "\npw: " << pw << " " << strlen(pw);
-    // std::cout << "\nk: " << k << " " << strlen(k);
-    // std::cout << "\ns: " << s << " " << strlen(reinterpret_cast<const char *>(s));
-
-
-    for (unsigned int i = 0; i < strlen(pw); i++)
-    {
-        convert.ch = pw[i];
-        of << std::hex << convert.num << " ";
-    }
+    
+    char pwHex[strlen(pw)*2+1];
+    sodium_bin2hex(
+        pwHex, sizeof pwHex,
+        (const unsigned char*)pw, strlen(pw));
+    of << pwHex;
     of << "\n";
-    for (unsigned int i = 0; i < strlen(k); i++)
-    {
-        convert.ch = k[i];
-        of << std::hex << convert.num << " ";
-    }
+    
+    char keyHex[strlen(k)*2+1];
+    sodium_bin2hex(
+        keyHex, sizeof keyHex,
+        (const unsigned char*)k, strlen(k));
+    of << keyHex;
     of << "\n";
-    // for (unsigned int i = 0; i < strlen(reinterpret_cast<const char *>(s)); i++)
-    for (unsigned int i = 0; i < strlen((const char *)s); i++)
-    {
-        convert.ch = s[i];
-        of << std::hex << convert.num << " ";
-    }
+    
+    char sHex[strlen((const char *)s)*2+1];
+    sodium_bin2hex(
+        sHex, sizeof sHex,
+        (const unsigned char*)s, strlen((const char *)s));
+    of << sHex;
     of << "\n";
 
     of.close();
@@ -110,44 +108,54 @@ void File::writeList(const unsigned char *key, std::vector<Entry> &entries)
 
     for (unsigned int i = 0; i < entries.size(); i++)
     {
-        //Write message length
-        unsigned int messageLength = strlen((const char *)entries[i].title.c_str()) +strlen((const char *)entries[i].user.c_str())+strlen((const char *)entries[i].pw.c_str());
-        messageLength += 2;
-        outfile << std::hex << messageLength << "\n";
+        //Store title length in hex
+        std::string title;
+        int messageLength = strlen((const char *)entries[i].title.c_str());
+        std::stringstream stream;
+        stream << std::hex << messageLength;
 
-        //write nonce
+        title += stream.str();
+        title += ",";
+
+        // Create nonce for title
         unsigned char nonce[crypto_secretbox_NONCEBYTES];
-        while (sizeof nonce > strlen((const char *)nonce))
+        while(sizeof nonce > strlen((const char *)nonce))
         {
             randombytes_buf(nonce, sizeof nonce);
         }
 
-        for (unsigned int i = 0; i < sizeof nonce; i++)
-        {
-            convert.ch = nonce[i];
-            outfile << std::hex << convert.num << " ";
-        }
-        outfile << "\n";
+        //Store nonce for title
+        char nonceHex[sizeof nonce*2+1];
+        sodium_bin2hex(
+            nonceHex, sizeof nonceHex,
+            (const unsigned char*)nonce, sizeof nonce);
+        title += nonceHex;
+        title += ",";
 
-        unsigned char message[messageLength];
-        strcpy((char *)message, entries[i].title.c_str());
-        strcat((char *)message, "\n");
-        strcat((char *)message, entries[i].user.c_str());
-        strcat((char *)message, "\n");
-        strcat((char *)message, entries[i].pw.c_str());
+        //Encrypt Title
+        unsigned char ciphertext[crypto_secretbox_MACBYTES + messageLength];
+        crypto_secretbox_easy(
+            ciphertext, (const unsigned char *)entries[i].title.c_str(), messageLength,
+            nonce, key);
 
-        int ctLength = crypto_secretbox_MACBYTES + messageLength;
-        unsigned char ciphertext[ctLength];
-        crypto_secretbox_easy(ciphertext, (const unsigned char*)message, messageLength, nonce, key);
+        //Store User
+        char ciphertextHex[sizeof ciphertext*2+1];
+        sodium_bin2hex(
+            ciphertextHex, sizeof ciphertextHex,
+            (const unsigned char*)ciphertext, sizeof ciphertext);
+        title += ciphertextHex;
+        title += ",";
 
-        for (int i = 0; i < ctLength; i++)
-        {
-            convert.ch = ciphertext[i];
-            outfile << std::hex << convert.num << " ";
-        }
-        outfile << "\n";
+        outfile << title << "\n";
+
+        //write user
+        outfile << entries[i].user << "\n";
+
+        //write password
+        outfile << entries[i].pw << "\n";
+
         sodium_memzero(nonce, sizeof nonce);
-        sodium_memzero(message, messageLength);
+        sodium_memzero((void *)title.c_str(), sizeof title);
     }
 
     outfile.close();
@@ -185,22 +193,24 @@ class Crypto{
         void readSecrets();
         int openPandorasBox();
         void unlockList();
+        void decryptHex(std::string &in, std::string &out);
+        void encryptToHex(std::string &in, std::string &out);
 };
 
 Crypto::Crypto()
 {
     this->clearMemory();
 
-    while ( sizeof this->salt < strlen((const char *)this->salt))
+    while ( sizeof this->salt > strlen((const char *)this->salt))
     {
-        randombytes(this->salt, sizeof this->salt);
+        randombytes_buf(this->salt, sizeof this->salt);
     }
 }
 Crypto::~Crypto()
 {
-    std::ofstream out("zzzSuccessfulExit");
-    out << "Test";
-    out.close();
+    // std::ofstream out("zzzSuccessfulExit");
+    // out << "Test";
+    // out.close();
     this->clearMemory();
 }
 void Crypto::clearMemory()
@@ -281,63 +291,37 @@ void Crypto::createKey(const char *in, unsigned char *out)
 void Crypto::readSecrets()
 {
     std::ifstream inf(".pandorasBox");
-
-    std::string character;
-    std::string hex = "0x";
-    std::string final;
     std::string line;
+    int linenum = 0;
 
-    std::getline(inf, line);
-    for (unsigned int i = 0; i < strlen(line.c_str()); i++)
+    while(std::getline(inf, line))
     {
-        if (isspace(line[i]))
-        {
-            convert.num = strtol(hex.c_str(), NULL, 16);
-            final += convert.ch;
-            hex = "0x";
-        }
-        else
-        {
-            hex += line[i];
-        }
-    }
-    strcpy(this->hashedPassword, final.c_str());
+        unsigned char bin[line.length()/2];
+        size_t bin_len;
+        const char *hex_end;
 
-    final = "";
-    std::getline(inf, line);
-    for (unsigned int i = 0; i < strlen(line.c_str()); i++)
-    {
-        if (isspace(line[i]))
+        int test = sodium_hex2bin(
+            bin, sizeof bin,
+            (const char *)line.c_str(), line.length(),
+            NULL, &bin_len,
+            &hex_end);
+        if (test == 0)
         {
-            convert.num = strtol(hex.c_str(), NULL, 16);
-            final += convert.ch;
-            hex = "0x";
-        }
-        else
-        {
-            hex += line[i];
-        }
-    }
-    strcpy(this->hashedMasterKey, final.c_str());
+            if (linenum == 0)
+            {
+                strncpy((char *)this->hashedPassword, (const char *)bin, sizeof bin);
 
-    final = "";
-    std::getline(inf, line);
-    for (unsigned int i = 0; i < strlen(line.c_str()); i++)
-    {
-        if (isspace(line[i]))
-        {
-            convert.num = strtol(hex.c_str(), NULL, 16);
-            final += convert.ch;
-            hex = "0x";
+            }
+            else if (linenum == 1)
+            {
+                strncpy((char *)this->hashedMasterKey, (const char *)bin, sizeof bin);
+            }
+            else if (linenum == 2)
+            {
+                strncpy((char *)this->salt, (const char *)bin, sizeof bin);
+            }
         }
-        else
-        {
-            hex += line[i];
-        }
-    }
-    for (unsigned int i = 0; i < strlen(final.c_str()); i++)
-    {
-        this->salt[i] = final[i];
+        linenum++;
     }
 
     inf.close();
@@ -370,6 +354,142 @@ int Crypto::openPandorasBox()
         return 1;
     }
 }
+void Crypto::decryptHex(std::string &in, std::string &out)
+{
+    unsigned int messageLength = 0;
+    unsigned char nonce[crypto_secretbox_NONCEBYTES];
+    std::string decrypted;
+    std::string ciphertext;
+
+    std::string delimiter = ",";
+    size_t pos = 0;
+    int dl = 0;
+    std::string token;
+    std::string line = in;
+
+    //for each comma delimited piece of the line
+    while ((pos = line.find(delimiter)) != std::string::npos) 
+    {
+        token = line.substr(0, pos);
+        if (dl == 0)
+        {
+            //Read in the title line length
+            messageLength = strtol(token.c_str(), NULL, 16);
+            dl++;
+        }
+        else if (dl == 1)
+        {
+            //Read in the title nonce
+            unsigned char bin[24];
+            size_t bin_len;
+            const char *hex_end;
+
+            if (sodium_hex2bin(
+                bin, sizeof bin,
+                (const char *)token.c_str(), 48,
+                NULL, &bin_len,
+                &hex_end) == 0)
+            {
+                strncpy((char*)nonce, (char*)bin, sizeof bin);
+            }
+
+            dl++;
+        }
+        else if (dl == 2)
+        {
+            //read in the title ciphertext as Hex
+            unsigned char bin[token.length()/2];
+            size_t bin_len;
+            const char *hex_end;
+
+            int test = sodium_hex2bin(
+                bin, sizeof bin,
+                (const char *)token.c_str(), token.length(),
+                NULL, &bin_len,
+                &hex_end);
+            if (test == 0)
+            {
+                for (unsigned int i = 0; i < sizeof bin; i++)
+                {
+                    ciphertext += bin[i];
+                }
+            }
+            else if (test == -1)
+            {
+                clear();
+                printw("need more bytes");refresh();int t = getch();t++;
+            }
+            else
+            {
+                clear();
+                printw("somethings messed up");refresh();int t = getch();t++;
+            }
+
+            // Decrypt Title
+            int ciphertextLength = crypto_secretbox_MACBYTES + messageLength;
+            if (crypto_secretbox_open_easy(
+                (unsigned char *)decrypted.c_str(), 
+                (unsigned char *)ciphertext.c_str(), 
+                ciphertextLength, nonce, this->testKey) != 0) {
+                clear();
+                printw("forged");refresh();int t = getch();t++;
+            }
+            else
+            {
+                out = "";
+                for (unsigned int i = 0; i < messageLength; i ++)
+                {
+                    out += decrypted[i];
+                }
+                sodium_memzero((void*)decrypted.c_str(), messageLength);
+            }
+        }
+        //End of delimiter
+        line.erase(0, pos + delimiter.length());
+    }
+}
+void Crypto::encryptToHex(std::string &in, std::string &out)
+{
+    //Store message length in hex
+    int messageLength = strlen((const char *)in.c_str());
+    std::stringstream stream;
+    stream << std::hex << messageLength;
+
+    out = "";
+
+    out += stream.str();
+    out += ",";
+
+    // Create nonce
+    unsigned char nonce[crypto_secretbox_NONCEBYTES];
+    while(sizeof nonce > strlen((const char *)nonce))
+    {
+        randombytes_buf(nonce, sizeof nonce);
+    }
+
+    //Store nonce
+    char nonceHex[sizeof nonce*2+1];
+    sodium_bin2hex(
+        nonceHex, sizeof nonceHex,
+        (const unsigned char*)nonce, sizeof nonce);
+    out += nonceHex;
+    out += ",";
+
+    //Encrypt User
+    unsigned char ciphertext[crypto_secretbox_MACBYTES + messageLength];
+    crypto_secretbox_easy(
+        ciphertext, (const unsigned char *)in.c_str(), messageLength,
+        nonce, this->testKey);
+
+    //Store User
+    char ciphertextHex[sizeof ciphertext*2+1];
+    sodium_bin2hex(
+        ciphertextHex, sizeof ciphertextHex,
+        (const unsigned char*)ciphertext, sizeof ciphertext);
+    out += ciphertextHex;
+    out += ",";
+    sodium_memzero((void*)in.c_str(), messageLength);
+}
 void Crypto::unlockList()
 {
     Entry entry;
@@ -377,107 +497,30 @@ void Crypto::unlockList()
 
     std::string line;
     unsigned int linenum = 0;
-    int messageLength;
-    unsigned char nonce[crypto_secretbox_NONCEBYTES];
-    while (std::getline(infile, line))
+
+    //For each line
+    while(std::getline(infile, line))
     {
         if (linenum == 0)
         {
-            // Read messagelength
-            messageLength = strtol(line.c_str(), NULL, 16);
+
+            this->decryptHex(line, entry.title);
             linenum++;
         }
         else if (linenum == 1)
         {
-            //Get Nonce
-            std::string hex = "0x";
-            std::string final = "";
-            for (unsigned int i = 0; i < line.length(); i++)
-            {
-                if (isspace(line[i]))
-                {
-                    convert.num = strtol(hex.c_str(), NULL, 16);
-                    final += convert.ch;
-                    strcpy((char *)nonce, (const char *)final.c_str());
-
-                    hex = "0x";
-                }
-                else
-                {
-                    hex += line[i];
-                }
-            }
+            entry.user = line;
             linenum++;
         }
         else if (linenum == 2)
         {
-            //Read data
-            std::string hex = "0x";
-            std::string ciphertext = "";
-
-            for (unsigned int i = 0; i < line.length(); i++)
-            {
-                if (isspace(line[i]))
-                {
-                    convert.num = strtol(hex.c_str(), NULL, 16);
-                    ciphertext += convert.ch;
-                    hex = "0x";
-                }
-                else
-                {
-                    hex += line[i];
-                }
-            }
-            int ciphertextLength = crypto_secretbox_MACBYTES + messageLength;
-
-            std::string decrypted;
-
-            if (crypto_secretbox_open_easy(
-                (unsigned char *)decrypted.c_str(), 
-                (unsigned char *)ciphertext.c_str(), 
-                ciphertextLength, nonce, this->testKey) != 0) {
-            }
-            else
-            {
-                std::string s;
-                for (unsigned int i = 0; i < sizeof decrypted; i++)
-                {
-                    s+= decrypted[i];
-                }
-                std::string delimiter = "\n";
-                sodium_memzero((char *)decrypted.c_str(), sizeof decrypted);
-
-                size_t pos = 0;
-                int l = 0;
-                std::string token;
-                while ((pos = s.find(delimiter)) != std::string::npos) {
-                    token = s.substr(0, pos);
-
-                    if (l == 0)
-                    {
-                        entry.title = token;
-                        l++;
-                    }
-                    else if (l == 1)
-                    {
-                        entry.user = token;
-                        l++;
-                    }
-                    s.erase(0, pos + delimiter.length());
-                }
-                entry.pw = "";
-                for (unsigned int i = 0; i < s.length(); i++)
-                {
-                    entry.pw += s[i];
-                }
-                this->entries.push_back(entry);
-                sodium_memzero((char *)s.c_str(), sizeof s);
-            }
+            entry.pw = line;
+            this->entries.push_back(entry);
             linenum = 0;
+
+            
         }
-
     }
-
     infile.close();
 }
 
@@ -497,14 +540,14 @@ class Interaction{
 
         void startUp();
         void startFresh();
+        void pause();
         int checkCommand(std::string in, const char *test);
         void commandPrompt();
-        void pause();
         void newEntry();
-        void listEntries();
-        void showPassword(int entry);
         void editEntry();
         void deleteEntry();
+        void listEntries();
+        void showPassword(int entry);
         void getEntry();
         void helpDialog();
         void changePassword();
@@ -574,6 +617,11 @@ void Interaction::startFresh()
     std::ofstream list(".list");
     list.close();
 }
+void Interaction::pause()
+{
+    int t = getch();
+    t++;
+}
 int Interaction::checkCommand(std::string in, const char *test)
 {
     bool equal = true;
@@ -634,18 +682,13 @@ void Interaction::commandPrompt()
     }
     else if (this->checkCommand(command, "change") || this->checkCommand(command, "change password"))
     {
-        this->changePassword();
+        // this->changePassword();
         this->commandPrompt();
     }
     else
     {
         this->commandPrompt();
     }
-}
-void Interaction::pause()
-{
-    int t = getch();
-    t++;
 }
 void Interaction::newEntry()
 {
@@ -671,6 +714,7 @@ void Interaction::newEntry()
             printw("Title> ");refresh();
             getnstr((char *)tempInput.c_str(),49);
         }
+        //Get title
         strcpy((char *)tempEntry.title.c_str(), tempInput.c_str());
     }
 
@@ -682,6 +726,8 @@ void Interaction::newEntry()
     }
     else
     {
+        tempInput = "";
+        tempEntry.user = "";
         while(strlen(tempInput.c_str()) > 50)
         {
             clear();refresh();
@@ -689,7 +735,8 @@ void Interaction::newEntry()
             printw("User> ");refresh();
             getnstr((char *)tempInput.c_str(),49);
         }
-        strcpy((char *)tempEntry.user.c_str(), tempInput.c_str());
+
+        crypt.encryptToHex(tempInput, tempEntry.user);
     }
 
     printw("\nPassword> ");refresh();
@@ -700,6 +747,8 @@ void Interaction::newEntry()
     }
     else
     {
+        tempInput = "";
+        tempEntry.pw = "";
         while(strlen(tempInput.c_str()) > 50)
         {
             clear();refresh();
@@ -707,122 +756,25 @@ void Interaction::newEntry()
             printw("Password> ");refresh();
             getnstr((char *)tempInput.c_str(),49);
         }
-        strcpy((char *)tempEntry.pw.c_str(), tempInput.c_str());
+        crypt.encryptToHex(tempInput, tempEntry.pw);
     }
-    tempInput = "00000000000000000000000000000000000000000000000000";
+
+    sodium_memzero((char *)tempInput.c_str(), sizeof tempInput);
 
     crypt.entries.push_back(tempEntry);
     std::sort (crypt.entries.begin(), crypt.entries.end(), Entry());
-
-}
-void Interaction::showPassword(int entry)
-{
-    clear();refresh();
-    printw("\n\t   Title> %s\n\n\t    User> %s\n\n\tPassword> %s\n", crypt.entries[entry].title.c_str(), crypt.entries[entry].user.c_str(), crypt.entries[entry].pw.c_str());
-
-    this->pause();
-}
-void Interaction::listEntries()
-{
-    clear();refresh();
-
-    int max = crypt.entries.size();
-    int pos = 0;
-
-    int input;
-    while(input != 'q')
-    {
-        clear();refresh();
-        printw("Listing Entries\n\n<q> to exit, <up/down> to scroll, <enter> to choose entry to view\n\n");
-        if (max < 1)
-        {
-            printw("No Entries");
-        }
-        else
-        {
-            int maxShow = pos + 10;
-            int counter = pos;
-
-            if (maxShow > max)
-            {
-                maxShow = max;
-            }
-            for (;counter < maxShow; counter++)
-            {
-                printw("\t%i: %s\n", counter+1, crypt.entries[counter].title.c_str());
-            }
-        }
-        keypad(stdscr, TRUE);
-        input = getch();
-        switch (input)
-        {
-            case KEY_UP:
-            {
-                pos -= 10;
-                break;
-            }
-            case KEY_DOWN:
-            {
-                pos += 10;
-                break;
-            }
-            case '\n':
-            {
-                // keypad(stdscr, FALSE);
-                printw("\nentry> ");refresh();
-                std::string tempInput;
-                getnstr((char *)tempInput.c_str(), 49);
-
-
-
-                if ((int)strtol(tempInput.c_str(), NULL, 10) == '\n')
-                {
-                    break;
-                }
-
-                int ii = strtol(tempInput.c_str(), NULL, 10) - 1;
-                if ( ii < 0 || ii > (int)crypt.entries.size()-1)
-                {
-                    break;
-                }
-                else
-                {
-
-                    this->showPassword(ii);
-                }
-                break;
-            }
-        }
-        keypad(stdscr, FALSE);
-
-        if (pos < 0)
-        {
-            pos = 0;
-        }
-        else if (pos > max-10)
-        {
-            if (max < 10)
-            {
-                pos = 0;
-            }
-            else
-            {
-                pos = max-10;
-            }
-        }
-
-    }
 }
 void Interaction::editEntry()
 {
     clear();refresh();
 
-    int max = crypt.entries.size();
+    int max;
     int pos = 0;
 
     int input;
     while(input != 'q')
     {
+        max = crypt.entries.size();
         clear();refresh();
         printw("Edit Entries\n\n<q> to exit, <up/down> to scroll, <enter> to choose entry to edit\n\n");
         if (max < 1)
@@ -861,11 +813,11 @@ void Interaction::editEntry()
             {
                 // keypad(stdscr, FALSE);
                 printw("\nentry> ");refresh();
-                std::string tempInput;
-                getnstr((char *)tempInput.c_str(), 49);
+                std::string entryNumber;
+                getnstr((char *)entryNumber.c_str(), 49);
 
-                int ii = strtol(tempInput.c_str(), NULL, 10) - 1;
-                if ( ii < 0 || ii > (int)crypt.entries.size()-1)
+                int entryNum = strtol(entryNumber.c_str(), NULL, 10) - 1;
+                if ( entryNum < 0 || entryNum > (int)crypt.entries.size()-1)
                 {
                     break;
                 }
@@ -873,75 +825,83 @@ void Interaction::editEntry()
                 {
                     clear();
                     refresh();
-                    std::string temp;
+                    std::string tempInput;
                     char enter[] = "";
 
                     clear();refresh();
                     printw("<Enter> to keep old data\n");
-                    printw("\nOld Title> %s", crypt.entries[ii].title.c_str());
+                    printw("\nOld Title> %s", crypt.entries[entryNum].title.c_str());
                     printw("\nNew Title> ");refresh();
-                    getnstr((char *)temp.c_str(), 49);
-                    if (memcmp ( temp.c_str(), enter, sizeof(enter) ) == 0)
+                    getnstr((char *)tempInput.c_str(), 49);
+                    if (memcmp ( tempInput.c_str(), enter, sizeof(enter) ) == 0)
                     {
                         //Keep old entry
                     }
                     else
                     {
-                        while(strlen(temp.c_str()) > 50)
+                        while(strlen(tempInput.c_str()) > 50)
                         {
                             clear();refresh();
                             printw("\nMust be shorter than 50 characters\n");
-                            printw("\nOld Title> %s", crypt.entries[ii].title.c_str());
+                            printw("\nOld Title> %s", crypt.entries[entryNum].title.c_str());
                             printw("\nNew Title> ");refresh();
-                            getnstr((char *)temp.c_str(), 49);
+                            getnstr((char *)tempInput.c_str(), 49);
                         }
-                        crypt.entries[ii].title = temp.c_str();
+                        crypt.entries[entryNum].title = tempInput.c_str();
                     }
+
+                    std::string user;
+                    crypt.decryptHex(crypt.entries[entryNum].user, user);
+                    tempInput = "";
 
                     clear();refresh();
                     printw("<Enter> to keep old data\n");
-                    printw("\nOld User> %s", crypt.entries[ii].user.c_str());
+                    printw("\nOld User> %s", user.c_str());
                     printw("\nNew User> ");refresh();
-                    getnstr((char *)temp.c_str(), 49);
-                    if (memcmp ( temp.c_str(), enter, sizeof(enter) ) == 0)
+                    getnstr((char *)tempInput.c_str(), 49);
+                    if (memcmp ( tempInput.c_str(), enter, sizeof(enter) ) == 0)
                     {
                         //Keep old entry
                     }
                     else
                     {
-                        while(strlen(temp.c_str()) > 50)
+                        while(strlen(tempInput.c_str()) > 50)
                         {
                             clear();refresh();
                             printw("\nMust be shorter than 50 characters\n");
-                            printw("\nOld User> %s", crypt.entries[ii].user.c_str());
+                            printw("\nOld User> %s", user.c_str());
                             printw("\nNew User> ");refresh();
-                            getnstr((char *)temp.c_str(), 49);
+                            getnstr((char *)tempInput.c_str(), 49);
                         }
-                        crypt.entries[ii].user = temp.c_str();
+                        crypt.encryptToHex(tempInput, crypt.entries[entryNum].user);
                     }
+
+                    std::string pw;
+                    crypt.decryptHex(crypt.entries[entryNum].pw, pw);
+                    tempInput = "";
 
                     clear();refresh();
                     printw("<Enter> to keep old data\n");
-                    printw("\nOld Password> %s", crypt.entries[ii].pw.c_str());
+                    printw("\nOld Password> %s", pw.c_str());
                     printw("\nNew Password> ");refresh();
-                    getnstr((char *)temp.c_str(), 49);
-                    if (memcmp ( temp.c_str(), enter, sizeof(enter) ) == 0)
+                    getnstr((char *)tempInput.c_str(), 49);
+                    if (memcmp ( tempInput.c_str(), enter, sizeof(enter) ) == 0)
                     {
                         //Keep old entry
                     }
                     else
                     {
-                        while(strlen(temp.c_str()) > 50)
+                        while(strlen(tempInput.c_str()) > 50)
                         {
                             clear();refresh();
                             printw("\nMust be shorter than 50 characters\n");
-                            printw("\nOld Password> %s", crypt.entries[ii].pw.c_str());
+                            printw("\nOld Password> %s", pw.c_str());
                             printw("\nNew Password> ");refresh();
-                            getnstr((char *)temp.c_str(), 49);
+                            getnstr((char *)tempInput.c_str(), 49);
                         }
-                        crypt.entries[ii].pw = temp.c_str();
+                        crypt.encryptToHex(tempInput, crypt.entries[entryNum].pw);
                     }
-                    temp = "00000000000000000000000000000000000000000000000000";
+                    tempInput = "00000000000000000000000000000000000000000000000000";
                     std::sort(crypt.entries.begin(), crypt.entries.end(), Entry());
                 }
                 break;
@@ -971,12 +931,13 @@ void Interaction::deleteEntry()
 {
     clear();refresh();
 
-    int max = crypt.entries.size();
+    int max;
     int pos = 0;
 
     int input;
     while(input != 'q')
     {
+        max = crypt.entries.size();
         clear();refresh();
         printw("Delete Entries\n\n<q> to exit, <up/down> to scroll, <enter> to choose entry to delete\n\n");
         if (max < 1)
@@ -1050,6 +1011,116 @@ void Interaction::deleteEntry()
         }
     }
 }
+void Interaction::listEntries()
+{
+    clear();refresh();
+
+    int max;
+    int pos = 0;
+
+    int input = 0;
+    while(input != 'q')
+    {
+        max = crypt.entries.size();
+        clear();refresh();
+        printw("Listing Entries\n\n<q> to exit, <up/down> to scroll, <enter> to choose entry to view\n\n");
+        if (max < 1)
+        {
+            printw("No Entries");refresh();
+        }
+        else
+        {
+            int maxShow = pos + 10;
+            int counter = pos;
+
+            if (maxShow > max)
+            {
+                maxShow = max;
+            }
+            for (;counter < maxShow; counter++)
+            {
+                printw("\t%i: %s\n", counter+1, crypt.entries[counter].title.c_str());
+            }
+        }
+        keypad(stdscr, TRUE);
+        input = getch();
+        switch (input)
+        {
+            case KEY_UP:
+            {
+                pos -= 10;
+                break;
+            }
+            case KEY_DOWN:
+            {
+                pos += 10;
+                break;
+            }
+            case '\n':
+            {
+                // keypad(stdscr, FALSE);
+                printw("\nentry> ");refresh();
+                std::string tempInput;
+                getstr((char *)tempInput.c_str());
+
+
+
+                if ((int)strtol(tempInput.c_str(), NULL, 10) == '\n')
+                {
+                    break;
+                }
+
+                int ii = strtol(tempInput.c_str(), NULL, 10) - 1;
+                if ( ii < 0 || ii > (int)crypt.entries.size()-1)
+                {
+                    break;
+                }
+                else
+                {
+                    this->showPassword(ii);
+                }
+                break;
+            }
+        }
+        keypad(stdscr, FALSE);
+
+        if (pos < 0)
+        {
+            pos = 0;
+        }
+        else if (pos > max-10)
+        {
+            if (max < 10)
+            {
+                pos = 0;
+            }
+            else
+            {
+                pos = max-10;
+            }
+        }
+
+    }
+}
+void Interaction::showPassword(int entry)
+{
+
+    std::string user;
+    std::string pw;
+
+    crypt.decryptHex(crypt.entries[entry].user, user);
+    crypt.decryptHex(crypt.entries[entry].pw, pw);
+
+    clear();refresh();
+    printw("\n\t   Title> %s\n\n\t   User> %s\n\n\tPassword> %s",
+        crypt.entries[entry].title.c_str(),user.c_str(),pw.c_str());
+    refresh();
+    
+    sodium_memzero((void*)user.c_str(), sizeof user);
+    sodium_memzero((void*)pw.c_str(), sizeof pw);
+
+    this->pause();
+}
 void Interaction::getEntry()
 {
     clear();refresh();
@@ -1076,7 +1147,6 @@ void Interaction::getEntry()
             }
         }
     }
-
 }
 void Interaction::helpDialog()
 {
@@ -1100,6 +1170,14 @@ void Interaction::changePassword()
     crypt.getPassword();
     //hash password
     crypt.hashPassword(crypt.password, crypt.hashedPassword);
+
+    //Need new salt
+    randombytes_buf(crypt.salt, sizeof crypt.salt);
+    while ( sizeof crypt.salt > strlen((const char *)crypt.salt))
+    {
+        randombytes_buf(crypt.salt, sizeof crypt.salt);
+    }
+
     //create key
     crypt.createKey(crypt.password, crypt.masterKey);
     //hash key
@@ -1109,7 +1187,7 @@ void Interaction::changePassword()
         // salt
         // hash key
     file.storeSecrets(crypt.hashedPassword, crypt.hashedMasterKey, crypt.salt);
-    file.writeList(crypt.masterKey, crypt.entries);
+    // file.writeList(crypt.masterKey, crypt.entries);
     sodium_memzero(crypt.masterKey, sizeof crypt.masterKey);
 }
 void Interaction::exit()
