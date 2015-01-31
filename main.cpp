@@ -763,7 +763,7 @@ void Interaction::newEntry()
     clear();refresh();
     printw("\nNew Entry\n");
 
-    printw("Title> ");refresh();
+    printw("\n   Title> ");refresh();
     getnstr((char *)tempInput.c_str(),49);
     if (memcmp ( tempInput.c_str(), enter, sizeof(enter) ) == 0)
     {
@@ -771,18 +771,11 @@ void Interaction::newEntry()
     }
     else
     {
-        while(strlen(tempInput.c_str()) > 50)
-        {
-            clear();refresh();
-            printw("\nMust be shorter than 50 characters\n");
-            printw("Title> ");refresh();
-            getnstr((char *)tempInput.c_str(),49);
-        }
         //Get title
         strcpy((char *)tempEntry.title.c_str(), tempInput.c_str());
     }
 
-    printw("\nUser> ");refresh();
+    printw("\n    User> ");refresh();
     getnstr((char *)tempInput.c_str(),49);
     if (memcmp ( tempInput.c_str(), enter, sizeof(enter) ) == 0)
     {
@@ -792,14 +785,6 @@ void Interaction::newEntry()
     {
         tempInput = "";
         tempEntry.user = "";
-        while(strlen(tempInput.c_str()) > 50)
-        {
-            clear();refresh();
-            printw("\nMust be shorter than 50 characters\n");
-            printw("User> ");refresh();
-            getnstr((char *)tempInput.c_str(),49);
-        }
-
         crypt.encryptToHex(tempInput, tempEntry.user, crypt.testKey);
     }
 
@@ -813,13 +798,6 @@ void Interaction::newEntry()
     {
         tempInput = "";
         tempEntry.pw = "";
-        while(strlen(tempInput.c_str()) > 50)
-        {
-            clear();refresh();
-            printw("\nMust be shorter than 50 characters\n");
-            printw("Password> ");refresh();
-            getnstr((char *)tempInput.c_str(),49);
-        }
         crypt.encryptToHex(tempInput, tempEntry.pw, crypt.testKey);
     }
 
@@ -903,14 +881,6 @@ void Interaction::editEntry()
                     }
                     else
                     {
-                        while(strlen(tempInput.c_str()) > 50)
-                        {
-                            clear();refresh();
-                            printw("\nMust be shorter than 50 characters\n");
-                            printw("\nOld Title> %s", crypt.entries[entryNum].title.c_str());
-                            printw("\nNew Title> ");refresh();
-                            getnstr((char *)tempInput.c_str(), 49);
-                        }
                         crypt.entries[entryNum].title = tempInput.c_str();
                     }
 
@@ -929,14 +899,6 @@ void Interaction::editEntry()
                     }
                     else
                     {
-                        while(strlen(tempInput.c_str()) > 50)
-                        {
-                            clear();refresh();
-                            printw("\nMust be shorter than 50 characters\n");
-                            printw("\nOld User> %s", user.c_str());
-                            printw("\nNew User> ");refresh();
-                            getnstr((char *)tempInput.c_str(), 49);
-                        }
                         crypt.encryptToHex(tempInput, crypt.entries[entryNum].user, crypt.testKey);
                     }
 
@@ -955,14 +917,6 @@ void Interaction::editEntry()
                     }
                     else
                     {
-                        while(strlen(tempInput.c_str()) > 50)
-                        {
-                            clear();refresh();
-                            printw("\nMust be shorter than 50 characters\n");
-                            printw("\nOld Password> %s", pw.c_str());
-                            printw("\nNew Password> ");refresh();
-                            getnstr((char *)tempInput.c_str(), 49);
-                        }
                         crypt.encryptToHex(tempInput, crypt.entries[entryNum].pw, crypt.testKey);
                     }
                     tempInput = "00000000000000000000000000000000000000000000000000";
