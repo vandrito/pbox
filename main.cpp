@@ -22,10 +22,10 @@ union Convert{
 }convert;
 
 class Entry{
-public:
-    std::string title = "00000000000000000000000000000000000000000000000000";
-    std::string user = "00000000000000000000000000000000000000000000000000";
-    std::string pw = "00000000000000000000000000000000000000000000000000";
+    public:
+        std::string title = "00000000000000000000000000000000000000000000000000";
+        std::string user = "00000000000000000000000000000000000000000000000000";
+        std::string pw = "00000000000000000000000000000000000000000000000000";
 
     Entry();
     ~Entry();
@@ -174,10 +174,10 @@ class Crypto{
         char hashedMasterKey[crypto_pwhash_scryptsalsa208sha256_STRBYTES];
         unsigned char testKey[crypto_box_SEEDBYTES];
 
-        unsigned char salt[crypto_pwhash_scryptsalsa208sha256_SALTBYTES];
-
         char password[50];
         char hashedPassword[crypto_pwhash_scryptsalsa208sha256_STRBYTES];
+
+        unsigned char salt[crypto_pwhash_scryptsalsa208sha256_SALTBYTES];
 
         std::vector<Entry> entries;
  
@@ -192,9 +192,11 @@ class Crypto{
         void createKey(const char *in, unsigned char *out);
         void readSecrets();
         int openPandorasBox();
+        void decryptHex(std::string &in, std::string &out, const unsigned char *key);
+        void encryptToHex(std::string &in, std::string &out, const unsigned char *key);
+        void writeList(std::vector<Entry> &entries, const unsigned char *key);
+        void rewriteList(std::vector<Entry> &entries, const unsigned char *key, const unsigned char *oldkey);
         void unlockList();
-        void decryptHex(std::string &in, std::string &out);
-        void encryptToHex(std::string &in, std::string &out);
 };
 
 Crypto::Crypto()
@@ -218,9 +220,9 @@ void Crypto::clearMemory()
     sodium_memzero(this->masterKey, crypto_box_SEEDBYTES);
     sodium_memzero(this->hashedMasterKey, crypto_pwhash_scryptsalsa208sha256_STRBYTES);
     sodium_memzero(this->testKey, crypto_box_SEEDBYTES);
-    sodium_memzero(this->salt, crypto_pwhash_scryptsalsa208sha256_SALTBYTES);
-    sodium_memzero(this->password, 50);
+    sodium_memzero(this->password, sizeof this->password);
     sodium_memzero(this->hashedPassword, crypto_pwhash_scryptsalsa208sha256_STRBYTES);
+    sodium_memzero(this->salt, crypto_pwhash_scryptsalsa208sha256_SALTBYTES);
 }
 int Crypto::pandorasBox()
 {
@@ -354,7 +356,7 @@ int Crypto::openPandorasBox()
         return 1;
     }
 }
-void Crypto::decryptHex(std::string &in, std::string &out)
+void Crypto::decryptHex(std::string &in, std::string &out, const unsigned char *key)
 {
     unsigned int messageLength = 0;
     unsigned char nonce[crypto_secretbox_NONCEBYTES];
@@ -409,10 +411,7 @@ void Crypto::decryptHex(std::string &in, std::string &out)
                 &hex_end);
             if (test == 0)
             {
-                for (unsigned int i = 0; i < sizeof bin; i++)
-                {
-                    ciphertext += bin[i];
-                }
+                ciphertext.assign((const char *)bin, sizeof bin);
             }
             else if (test == -1)
             {
@@ -430,7 +429,7 @@ void Crypto::decryptHex(std::string &in, std::string &out)
             if (crypto_secretbox_open_easy(
                 (unsigned char *)decrypted.c_str(), 
                 (unsigned char *)ciphertext.c_str(), 
-                ciphertextLength, nonce, this->testKey) != 0) {
+                ciphertextLength, nonce, key) != 0) {
                 clear();
                 printw("forged");refresh();int t = getch();t++;
             }
@@ -448,12 +447,13 @@ void Crypto::decryptHex(std::string &in, std::string &out)
         line.erase(0, pos + delimiter.length());
     }
 }
-void Crypto::encryptToHex(std::string &in, std::string &out)
+void Crypto::encryptToHex(std::string &in, std::string &out, const unsigned char *key)
 {
     //Store message length in hex
     int messageLength = strlen((const char *)in.c_str());
     std::stringstream stream;
     stream << std::hex << messageLength;
+    std::string decrypted = in;
 
     out = "";
 
@@ -478,8 +478,8 @@ void Crypto::encryptToHex(std::string &in, std::string &out)
     //Encrypt User
     unsigned char ciphertext[crypto_secretbox_MACBYTES + messageLength];
     crypto_secretbox_easy(
-        ciphertext, (const unsigned char *)in.c_str(), messageLength,
-        nonce, this->testKey);
+        ciphertext, (const unsigned char *)decrypted.c_str(), messageLength,
+        nonce, key);
 
     //Store User
     char ciphertextHex[sizeof ciphertext*2+1];
@@ -488,7 +488,71 @@ void Crypto::encryptToHex(std::string &in, std::string &out)
         (const unsigned char*)ciphertext, sizeof ciphertext);
     out += ciphertextHex;
     out += ",";
-    sodium_memzero((void*)in.c_str(), messageLength);
+    // sodium_memzero((void*)decrypted.c_str(), messageLength);
+}
+void Crypto::writeList(std::vector<Entry> &entries, const unsigned char *key)
+{
+    std::ofstream outfile(".list");
+
+    for (unsigned int i = 0; i < entries.size(); i++)
+    {
+        std::string title = "";
+
+        //encrypt title
+        this->encryptToHex(entries[i].title, title, key);
+
+        //write title
+        outfile << title << "\n";
+
+        //write user
+        outfile << entries[i].user << "\n";
+
+        //write password
+        outfile << entries[i].pw << "\n";
+
+        // sodium_memzero(nonce, sizeof nonce);
+        sodium_memzero((void *)title.c_str(), sizeof title);
+    }
+
+    outfile.close();
+}
+void Crypto::rewriteList(std::vector<Entry> &entries, const unsigned char *key, const unsigned char *oldkey)
+{
+    std::ofstream outfile(".list");
+
+    for (unsigned int i = 0; i < entries.size(); i++)
+    {
+        std::string title = "";
+        std::string user = "";
+        std::string pw = "";
+
+        //encrypt title
+        this->encryptToHex(entries[i].title, title, key);
+
+        //write title
+        outfile << title << "\n";
+
+        //decrypt user
+        this->decryptHex(entries[i].user, user, oldkey);
+        //encrypt user with new key
+        this->encryptToHex(user, user, key);
+        //write user
+        outfile << user << "\n";
+
+        //decrypt Password
+        this->decryptHex(entries[i].pw, pw, oldkey);
+        //encrypt password with new key
+        this->encryptToHex(pw, pw, key);
+        //write password
+        outfile << pw << "\n";
+
+        // sodium_memzero(nonce, sizeof nonce);
+        sodium_memzero((void *)title.c_str(), sizeof title);
+        sodium_memzero((void *)user.c_str(), sizeof user);
+        sodium_memzero((void *)pw.c_str(), sizeof pw);
+    }
+
+    outfile.close();
 }
 void Crypto::unlockList()
 {
@@ -504,7 +568,7 @@ void Crypto::unlockList()
         if (linenum == 0)
         {
 
-            this->decryptHex(line, entry.title);
+            this->decryptHex(line, entry.title, this->testKey);
             linenum++;
         }
         else if (linenum == 1)
@@ -651,7 +715,7 @@ void Interaction::commandPrompt()
     else if (this->checkCommand(command, "new"))
     {
         this->newEntry();
-        file.writeList(crypt.testKey, crypt.entries);
+        crypt.writeList(crypt.entries, crypt.testKey);
         this->commandPrompt();
     }
     else if (this->checkCommand(command, "list") || this->checkCommand(command, "ls"))
@@ -662,13 +726,13 @@ void Interaction::commandPrompt()
     else if (this->checkCommand(command, "edit"))
     {
         this->editEntry();
-        file.writeList(crypt.testKey, crypt.entries);
+        crypt.writeList(crypt.entries, crypt.testKey);
         this->commandPrompt();
     }
     else if (this->checkCommand(command, "delete") || this->checkCommand(command, "del"))
     {
         this->deleteEntry();
-        file.writeList(crypt.testKey, crypt.entries);
+        crypt.writeList(crypt.entries, crypt.testKey);
         this->commandPrompt();
     }
     else if (this->checkCommand(command, "get"))
@@ -682,7 +746,7 @@ void Interaction::commandPrompt()
     }
     else if (this->checkCommand(command, "change") || this->checkCommand(command, "change password"))
     {
-        // this->changePassword();
+        this->changePassword();
         this->commandPrompt();
     }
     else
@@ -736,7 +800,7 @@ void Interaction::newEntry()
             getnstr((char *)tempInput.c_str(),49);
         }
 
-        crypt.encryptToHex(tempInput, tempEntry.user);
+        crypt.encryptToHex(tempInput, tempEntry.user, crypt.testKey);
     }
 
     printw("\nPassword> ");refresh();
@@ -756,7 +820,7 @@ void Interaction::newEntry()
             printw("Password> ");refresh();
             getnstr((char *)tempInput.c_str(),49);
         }
-        crypt.encryptToHex(tempInput, tempEntry.pw);
+        crypt.encryptToHex(tempInput, tempEntry.pw, crypt.testKey);
     }
 
     sodium_memzero((char *)tempInput.c_str(), sizeof tempInput);
@@ -851,7 +915,7 @@ void Interaction::editEntry()
                     }
 
                     std::string user;
-                    crypt.decryptHex(crypt.entries[entryNum].user, user);
+                    crypt.decryptHex(crypt.entries[entryNum].user, user, crypt.testKey);
                     tempInput = "";
 
                     clear();refresh();
@@ -873,11 +937,11 @@ void Interaction::editEntry()
                             printw("\nNew User> ");refresh();
                             getnstr((char *)tempInput.c_str(), 49);
                         }
-                        crypt.encryptToHex(tempInput, crypt.entries[entryNum].user);
+                        crypt.encryptToHex(tempInput, crypt.entries[entryNum].user, crypt.testKey);
                     }
 
                     std::string pw;
-                    crypt.decryptHex(crypt.entries[entryNum].pw, pw);
+                    crypt.decryptHex(crypt.entries[entryNum].pw, pw, crypt.testKey);
                     tempInput = "";
 
                     clear();refresh();
@@ -899,7 +963,7 @@ void Interaction::editEntry()
                             printw("\nNew Password> ");refresh();
                             getnstr((char *)tempInput.c_str(), 49);
                         }
-                        crypt.encryptToHex(tempInput, crypt.entries[entryNum].pw);
+                        crypt.encryptToHex(tempInput, crypt.entries[entryNum].pw, crypt.testKey);
                     }
                     tempInput = "00000000000000000000000000000000000000000000000000";
                     std::sort(crypt.entries.begin(), crypt.entries.end(), Entry());
@@ -1108,11 +1172,11 @@ void Interaction::showPassword(int entry)
     std::string user;
     std::string pw;
 
-    crypt.decryptHex(crypt.entries[entry].user, user);
-    crypt.decryptHex(crypt.entries[entry].pw, pw);
+    crypt.decryptHex(crypt.entries[entry].user, user, crypt.testKey);
+    crypt.decryptHex(crypt.entries[entry].pw, pw, crypt.testKey);
 
     clear();refresh();
-    printw("\n\t   Title> %s\n\n\t   User> %s\n\n\tPassword> %s",
+    printw("\n\t   Title> %s\n\n\t    User> %s\n\n\tPassword> %s",
         crypt.entries[entry].title.c_str(),user.c_str(),pw.c_str());
     refresh();
     
@@ -1177,6 +1241,8 @@ void Interaction::changePassword()
     {
         randombytes_buf(crypt.salt, sizeof crypt.salt);
     }
+    unsigned char oldkey[crypto_box_SEEDBYTES];
+    strncpy((char *)oldkey, (const char *)crypt.testKey, sizeof crypt.testKey);
 
     //create key
     crypt.createKey(crypt.password, crypt.masterKey);
@@ -1187,7 +1253,7 @@ void Interaction::changePassword()
         // salt
         // hash key
     file.storeSecrets(crypt.hashedPassword, crypt.hashedMasterKey, crypt.salt);
-    // file.writeList(crypt.masterKey, crypt.entries);
+    crypt.rewriteList(crypt.entries, crypt.masterKey, oldkey);
     sodium_memzero(crypt.masterKey, sizeof crypt.masterKey);
 }
 void Interaction::exit()
