@@ -61,6 +61,9 @@ class File{
     private:
         
     public:
+        std::string list;
+        std::string pbox;
+
         File();
         ~File();
 
@@ -70,6 +73,15 @@ class File{
 };
 File::File()
 {
+    this->list += "/home/";
+    this->list += getenv("USER");
+    this->list += "/.pbox/";
+    this->list += ".list";
+
+    this->pbox += "/home/";
+    this->pbox += getenv("USER");
+    this->pbox += "/.pbox/";
+    this->pbox += ".pandorasBox";
 
 }
 File::~File()
@@ -78,11 +90,7 @@ File::~File()
 }
 void File::storeSecrets(const char *pw, const char *k, const unsigned char *s)
 {
-    std::string dir = "/home/";
-    dir += getenv("USER");
-    dir += "/.pbox/";
-    dir += ".pandorasBox";
-    std::ofstream of(dir);
+    std::ofstream of(this->pbox);
     
     char pwHex[strlen(pw)*2+1];
     sodium_bin2hex(
@@ -110,11 +118,7 @@ void File::storeSecrets(const char *pw, const char *k, const unsigned char *s)
 }
 void File::writeList(const unsigned char *key, std::vector<Entry> &entries)
 {
-    std::string dir = "/home/";
-    dir += getenv("USER");
-    dir += "/.pbox/";
-    dir += ".list";
-    std::ofstream outfile(dir);
+    std::ofstream outfile(this->list);
 
     for (unsigned int i = 0; i < entries.size(); i++)
     {
@@ -226,15 +230,10 @@ Crypto::~Crypto()
     // out.close();
 
     {
-        std::string dir = "/home/";
-        dir += getenv("USER");
-        dir += "/.pbox/";
-        
-        dir += ".pandorasBox";
         std::string command = "sudo chattr +i ";
-        command += dir;
+        command += file.pbox;
         try{
-            chmod(dir.c_str(), 0400);
+            chmod(file.pbox.c_str(), 0400);
         }
         catch(std::bad_alloc e){
             printw("%s", e.what());int t = getch();t++;
@@ -247,15 +246,10 @@ Crypto::~Crypto()
         }
     }
     {
-        std::string dir = "/home/";
-        dir += getenv("USER");
-        dir += "/.pbox/";
-        
-        dir += ".list";
         std::string command = "sudo chattr +i ";
-        command += dir;
+        command += file.list;
         try{
-            chmod(dir.c_str(), 0400);
+            chmod(file.list.c_str(), 0400);
         }
         catch(std::bad_alloc e){
             printw("%s", e.what());int t = getch();t++;
@@ -336,12 +330,8 @@ void Crypto::openFiles()
 }
 int Crypto::pandorasBox()
 {
-    std::string dir = "/home/";
-    dir += getenv("USER");
-    dir += "/.pbox/";
-
-    std::ifstream pandorasBox(dir + ".pandorasBox");
-    std::ifstream list(dir + ".list");
+    std::ifstream pandorasBox(file.pbox);
+    std::ifstream list(file.list);
 
     if (pandorasBox && list)
     {
@@ -406,10 +396,7 @@ void Crypto::createKey(const char *in, unsigned char *out)
 }
 void Crypto::readSecrets()
 {
-    std::string dir = "/home/";
-    dir += getenv("USER");
-    dir += "/.pbox/";
-    std::ifstream inf(dir + ".pandorasBox");
+    std::ifstream inf(file.pbox);
     std::string line;
     int linenum = 0;
 
@@ -610,11 +597,7 @@ void Crypto::encryptToHex(std::string &in, std::string &out, const unsigned char
 }
 void Crypto::writeList(std::vector<Entry> &entries, const unsigned char *key)
 {
-    std::string dir = "/home/";
-    dir += getenv("USER");
-    dir += "/.pbox/";
-    dir += ".list";
-    std::ofstream outfile(dir);
+    std::ofstream outfile(file.list);
 
     for (unsigned int i = 0; i < entries.size(); i++)
     {
@@ -640,11 +623,7 @@ void Crypto::writeList(std::vector<Entry> &entries, const unsigned char *key)
 }
 void Crypto::rewriteList(std::vector<Entry> &entries, const unsigned char *key, const unsigned char *oldkey)
 {
-    std::string dir = "/home/";
-    dir += getenv("USER");
-    dir += "/.pbox/";
-    dir += ".list";
-    std::ofstream outfile(dir);
+    std::ofstream outfile(file.list);
 
     for (unsigned int i = 0; i < entries.size(); i++)
     {
@@ -683,10 +662,7 @@ void Crypto::rewriteList(std::vector<Entry> &entries, const unsigned char *key, 
 void Crypto::unlockList()
 {
     Entry entry;
-    std::string dir = "/home/";
-    dir += getenv("USER");
-    dir += "/.pbox/";
-    std::ifstream infile(dir + ".list");
+    std::ifstream infile(file.list);
 
     std::string line;
     unsigned int linenum = 0;
@@ -807,11 +783,7 @@ void Interaction::startFresh()
         // hash key
     file.storeSecrets(crypt.hashedPassword, crypt.hashedMasterKey, crypt.salt);
     //password checking was wonky without first creating an empty list
-    std::string dir = "/home/";
-    dir += getenv("USER");
-    dir += "/.pbox/";
-    dir += ".list";
-    std::ofstream list(dir);
+    std::ofstream list(file.list);
     list.close();
 }
 void Interaction::pause()
