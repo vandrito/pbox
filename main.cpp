@@ -10,7 +10,8 @@
 #include <vector>
 #include <algorithm>
 // #include <climits>
-// #include <sys/stat.h>
+#include <sys/stat.h>
+#include <unistd.h>
 #include <signal.h>
 #include <ncurses.h>
 
@@ -23,9 +24,9 @@ union Convert{
 
 class Entry{
     public:
-        std::string title = "00000000000000000000000000000000000000000000000000";
-        std::string user = "00000000000000000000000000000000000000000000000000";
-        std::string pw = "00000000000000000000000000000000000000000000000000";
+        std::string title = "0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000";
+        std::string user = "0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000";
+        std::string pw = "0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000";
 
     Entry();
     ~Entry();
@@ -42,9 +43,9 @@ Entry::Entry()
 }
 Entry::~Entry()
 {
-    this->title = "00000000000000000000000000000000000000000000000000";
-    this->user = "00000000000000000000000000000000000000000000000000";
-    this->pw = "00000000000000000000000000000000000000000000000000";
+    this->title = "0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000";
+    this->user = "0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000";
+    this->pw = "0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000";
     //When creating new entries, the memzero function borks everything up
     sodium_memzero((void *)this->title.c_str(), strlen(this->title.c_str()));
     sodium_memzero((void *)this->user.c_str(), strlen(this->user.c_str()));
@@ -77,7 +78,13 @@ File::~File()
 }
 void File::storeSecrets(const char *pw, const char *k, const unsigned char *s)
 {
-    std::ofstream of(".pandorasBox");
+    std::string dir = "/home/";
+    dir += getenv("USER");
+    dir += "/.pbox/";
+    mkdir(dir.c_str(), 0700);
+    dir += ".pandorasBox";
+    chmod(dir.c_str(), 0600);
+    std::ofstream of(dir);
     
     char pwHex[strlen(pw)*2+1];
     sodium_bin2hex(
@@ -101,10 +108,18 @@ void File::storeSecrets(const char *pw, const char *k, const unsigned char *s)
     of << "\n";
 
     of.close();
+    chmod(dir.c_str(), 0400);
+
 }
 void File::writeList(const unsigned char *key, std::vector<Entry> &entries)
 {
-    std::ofstream outfile(".list");
+    std::string dir = "/home/";
+    dir += getenv("USER");
+    dir += "/.pbox/";
+    mkdir(dir.c_str(), 0700);
+    dir += ".list";
+    chmod(dir.c_str(), 0600);
+    std::ofstream outfile(dir);
 
     for (unsigned int i = 0; i < entries.size(); i++)
     {
@@ -159,6 +174,7 @@ void File::writeList(const unsigned char *key, std::vector<Entry> &entries)
     }
 
     outfile.close();
+    chmod(dir.c_str(), 0400);
 }
 
 /****************************************************
@@ -174,7 +190,7 @@ class Crypto{
         char hashedMasterKey[crypto_pwhash_scryptsalsa208sha256_STRBYTES];
         unsigned char testKey[crypto_box_SEEDBYTES];
 
-        char password[50];
+        char password[100];
         char hashedPassword[crypto_pwhash_scryptsalsa208sha256_STRBYTES];
 
         unsigned char salt[crypto_pwhash_scryptsalsa208sha256_SALTBYTES];
@@ -226,8 +242,12 @@ void Crypto::clearMemory()
 }
 int Crypto::pandorasBox()
 {
-    std::ifstream pandorasBox(".pandorasBox");
-    std::ifstream list(".list");
+    std::string dir = "/home/";
+    dir += getenv("USER");
+    dir += "/.pbox/";
+
+    std::ifstream pandorasBox(dir + ".pandorasBox");
+    std::ifstream list(dir + ".list");
 
     if (pandorasBox && list)
     {
@@ -251,7 +271,7 @@ void Crypto::getPassword()
 
     char enter[] = "";
 
-    while (strlen(this->password) > 49 || memcmp( this->password, enter, sizeof(enter) ) == 0)
+    while (strlen(this->password) > 99 || memcmp( this->password, enter, sizeof(enter) ) == 0)
     {
         clear();refresh();
         printw("\nPassword must be shorter than 50 characters and greater than 0\n");
@@ -292,7 +312,10 @@ void Crypto::createKey(const char *in, unsigned char *out)
 }
 void Crypto::readSecrets()
 {
-    std::ifstream inf(".pandorasBox");
+    std::string dir = "/home/";
+    dir += getenv("USER");
+    dir += "/.pbox/";
+    std::ifstream inf(dir + ".pandorasBox");
     std::string line;
     int linenum = 0;
 
@@ -492,7 +515,13 @@ void Crypto::encryptToHex(std::string &in, std::string &out, const unsigned char
 }
 void Crypto::writeList(std::vector<Entry> &entries, const unsigned char *key)
 {
-    std::ofstream outfile(".list");
+    std::string dir = "/home/";
+    dir += getenv("USER");
+    dir += "/.pbox/";
+    mkdir(dir.c_str(), 0700);
+    dir += ".list";
+    chmod(dir.c_str(), 0600);
+    std::ofstream outfile(dir);
 
     for (unsigned int i = 0; i < entries.size(); i++)
     {
@@ -515,10 +544,17 @@ void Crypto::writeList(std::vector<Entry> &entries, const unsigned char *key)
     }
 
     outfile.close();
+    chmod(dir.c_str(), 0400);
 }
 void Crypto::rewriteList(std::vector<Entry> &entries, const unsigned char *key, const unsigned char *oldkey)
 {
-    std::ofstream outfile(".list");
+    std::string dir = "/home/";
+    dir += getenv("USER");
+    dir += "/.pbox/";
+    mkdir(dir.c_str(), 0700);
+    dir += ".list";
+    chmod(dir.c_str(), 0600);
+    std::ofstream outfile(dir);
 
     for (unsigned int i = 0; i < entries.size(); i++)
     {
@@ -553,11 +589,15 @@ void Crypto::rewriteList(std::vector<Entry> &entries, const unsigned char *key, 
     }
 
     outfile.close();
+    chmod(dir.c_str(), 0400);
 }
 void Crypto::unlockList()
 {
     Entry entry;
-    std::ifstream infile(".list");
+    std::string dir = "/home/";
+    dir += getenv("USER");
+    dir += "/.pbox/";
+    std::ifstream infile(dir + ".list");
 
     std::string line;
     unsigned int linenum = 0;
@@ -678,8 +718,15 @@ void Interaction::startFresh()
         // hash key
     file.storeSecrets(crypt.hashedPassword, crypt.hashedMasterKey, crypt.salt);
     //password checking was wonky without first creating an empty list
-    std::ofstream list(".list");
+    std::string dir = "/home/";
+    dir += getenv("USER");
+    dir += "/.pbox/";
+    mkdir(dir.c_str(), 0700);
+    dir += ".list";
+    chmod(dir.c_str(), 0600);
+    std::ofstream list(dir);
     list.close();
+    chmod(dir.c_str(), 0400);
 }
 void Interaction::pause()
 {
@@ -705,7 +752,7 @@ void Interaction::commandPrompt()
     clear();refresh();
     printw("Enter a Command <h for help>\n> ");refresh();
     std::string command;
-    getnstr((char *)command.c_str(), 49);
+    getnstr((char *)command.c_str(), 24);
 
     if (this->checkCommand(command, "h") || this->checkCommand(command, "help"))
     {
@@ -764,7 +811,7 @@ void Interaction::newEntry()
     printw("\nNew Entry\n");
 
     printw("\n   Title> ");refresh();
-    getnstr((char *)tempInput.c_str(),49);
+    getnstr((char *)tempInput.c_str(),99);
     if (memcmp ( tempInput.c_str(), enter, sizeof(enter) ) == 0)
     {
         strcpy((char *)tempEntry.title.c_str(), "<NA>");
@@ -776,7 +823,7 @@ void Interaction::newEntry()
     }
 
     printw("\n    User> ");refresh();
-    getnstr((char *)tempInput.c_str(),49);
+    getnstr((char *)tempInput.c_str(),99);
     if (memcmp ( tempInput.c_str(), enter, sizeof(enter) ) == 0)
     {
         strcpy((char *)tempEntry.user.c_str(), "<NA>");
@@ -789,7 +836,7 @@ void Interaction::newEntry()
     }
 
     printw("\nPassword> ");refresh();
-    getnstr((char *)tempInput.c_str(),49);
+    getnstr((char *)tempInput.c_str(),99);
     if (memcmp ( tempInput.c_str(), enter, sizeof(enter) ) == 0)
     {
         strcpy((char *)tempEntry.pw.c_str(), "<NA>");
@@ -856,7 +903,7 @@ void Interaction::editEntry()
                 // keypad(stdscr, FALSE);
                 printw("\nentry> ");refresh();
                 std::string entryNumber;
-                getnstr((char *)entryNumber.c_str(), 49);
+                getnstr((char *)entryNumber.c_str(), 24);
 
                 int entryNum = strtol(entryNumber.c_str(), NULL, 10) - 1;
                 if ( entryNum < 0 || entryNum > (int)crypt.entries.size()-1)
@@ -874,7 +921,7 @@ void Interaction::editEntry()
                     printw("<Enter> to keep old data\n");
                     printw("\nOld Title> %s", crypt.entries[entryNum].title.c_str());
                     printw("\nNew Title> ");refresh();
-                    getnstr((char *)tempInput.c_str(), 49);
+                    getnstr((char *)tempInput.c_str(), 99);
                     if (memcmp ( tempInput.c_str(), enter, sizeof(enter) ) == 0)
                     {
                         //Keep old entry
@@ -892,7 +939,7 @@ void Interaction::editEntry()
                     printw("<Enter> to keep old data\n");
                     printw("\nOld User> %s", user.c_str());
                     printw("\nNew User> ");refresh();
-                    getnstr((char *)tempInput.c_str(), 49);
+                    getnstr((char *)tempInput.c_str(), 99);
                     if (memcmp ( tempInput.c_str(), enter, sizeof(enter) ) == 0)
                     {
                         //Keep old entry
@@ -910,7 +957,7 @@ void Interaction::editEntry()
                     printw("<Enter> to keep old data\n");
                     printw("\nOld Password> %s", pw.c_str());
                     printw("\nNew Password> ");refresh();
-                    getnstr((char *)tempInput.c_str(), 49);
+                    getnstr((char *)tempInput.c_str(), 99);
                     if (memcmp ( tempInput.c_str(), enter, sizeof(enter) ) == 0)
                     {
                         //Keep old entry
@@ -995,7 +1042,7 @@ void Interaction::deleteEntry()
                 // keypad(stdscr, FALSE);
                 printw("\nentry> ");refresh();
                 std::string tempInput;
-                getnstr((char *)tempInput.c_str(),49);
+                getnstr((char *)tempInput.c_str(),24);
 
                 int ii = strtol(tempInput.c_str(), NULL, 10) - 1;
                 if ( ii < 0 || ii > (int)crypt.entries.size()-1)
@@ -1230,6 +1277,6 @@ int main(void)
     signal(SIGTSTP, exitGracefully);
     Interaction *prompt = new Interaction;
     delete prompt;
-
+    
     return 0;
 }
