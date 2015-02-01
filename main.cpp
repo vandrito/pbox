@@ -81,9 +81,7 @@ void File::storeSecrets(const char *pw, const char *k, const unsigned char *s)
     std::string dir = "/home/";
     dir += getenv("USER");
     dir += "/.pbox/";
-    mkdir(dir.c_str(), 0700);
     dir += ".pandorasBox";
-    chmod(dir.c_str(), 0600);
     std::ofstream of(dir);
     
     char pwHex[strlen(pw)*2+1];
@@ -108,7 +106,6 @@ void File::storeSecrets(const char *pw, const char *k, const unsigned char *s)
     of << "\n";
 
     of.close();
-    chmod(dir.c_str(), 0400);
 
 }
 void File::writeList(const unsigned char *key, std::vector<Entry> &entries)
@@ -116,9 +113,7 @@ void File::writeList(const unsigned char *key, std::vector<Entry> &entries)
     std::string dir = "/home/";
     dir += getenv("USER");
     dir += "/.pbox/";
-    mkdir(dir.c_str(), 0700);
     dir += ".list";
-    chmod(dir.c_str(), 0600);
     std::ofstream outfile(dir);
 
     for (unsigned int i = 0; i < entries.size(); i++)
@@ -174,7 +169,6 @@ void File::writeList(const unsigned char *key, std::vector<Entry> &entries)
     }
 
     outfile.close();
-    chmod(dir.c_str(), 0400);
 }
 
 /****************************************************
@@ -201,6 +195,7 @@ class Crypto{
         ~Crypto();
 
         void clearMemory();
+        void openFiles();
         int pandorasBox();
         void getPassword();
         void hashPassword(const char *in, char *out);
@@ -229,6 +224,50 @@ Crypto::~Crypto()
     // std::ofstream out("zzzSuccessfulExit");
     // out << "Test";
     // out.close();
+
+    {
+        std::string dir = "/home/";
+        dir += getenv("USER");
+        dir += "/.pbox/";
+        
+        dir += ".pandorasBox";
+        std::string command = "sudo chattr +i ";
+        command += dir;
+        try{
+            chmod(dir.c_str(), 0400);
+        }
+        catch(std::bad_alloc e){
+            printw("%s", e.what());int t = getch();t++;
+        }
+        try{
+            system(command.c_str());
+        }
+        catch(std::bad_alloc e){
+            printw("%s", e.what());int t = getch();t++;
+        }
+    }
+    {
+        std::string dir = "/home/";
+        dir += getenv("USER");
+        dir += "/.pbox/";
+        
+        dir += ".list";
+        std::string command = "sudo chattr +i ";
+        command += dir;
+        try{
+            chmod(dir.c_str(), 0400);
+        }
+        catch(std::bad_alloc e){
+            printw("%s", e.what());int t = getch();t++;
+        }
+        try{
+            system(command.c_str());
+        }
+        catch(std::bad_alloc e){
+            printw("%s", e.what());int t = getch();t++;
+        }
+    }
+    
     this->clearMemory();
 }
 void Crypto::clearMemory()
@@ -239,6 +278,61 @@ void Crypto::clearMemory()
     sodium_memzero(this->password, sizeof this->password);
     sodium_memzero(this->hashedPassword, crypto_pwhash_scryptsalsa208sha256_STRBYTES);
     sodium_memzero(this->salt, crypto_pwhash_scryptsalsa208sha256_SALTBYTES);
+}
+void Crypto::openFiles()
+{
+    {
+        std::string dir = "/home/";
+        dir += getenv("USER");
+        dir += "/.pbox/";
+        try{
+            mkdir(dir.c_str(), 0700);
+        }
+        catch(std::bad_alloc e){
+            printw("%s", e.what());int t = getch();t++;
+        }
+        dir += ".pandorasBox";
+        std::string command = "sudo chattr -i ";
+        command += dir;
+        try{
+            system(command.c_str());
+        }
+        catch(std::bad_alloc e){
+            printw("%s", e.what());int t = getch();t++;
+        }
+        try{
+            chmod(dir.c_str(), 0600);
+        }
+        catch(std::bad_alloc e){
+            printw("%s", e.what());int t = getch();t++;
+        }
+    }
+    {
+        std::string dir = "/home/";
+        dir += getenv("USER");
+        dir += "/.pbox/";
+        try{
+            mkdir(dir.c_str(), 0700);
+        }
+        catch(std::bad_alloc e){
+            printw("%s", e.what());int t = getch();t++;
+        }
+        dir += ".list";
+        std::string command = "sudo chattr -i ";
+        command += dir;
+        try{
+            system(command.c_str());
+        }
+        catch(std::bad_alloc e){
+            printw("%s", e.what());int t = getch();t++;
+        }
+        try{
+            chmod(dir.c_str(), 0600);
+        }
+        catch(std::bad_alloc e){
+            printw("%s", e.what());int t = getch();t++;
+        }
+    }
 }
 int Crypto::pandorasBox()
 {
@@ -374,8 +468,9 @@ int Crypto::openPandorasBox()
     }
     else
     {
-        printw("\nWelcome, Master!\n"); refresh();
+        // printw("\nWelcome, Master!\n"); refresh();
         sodium_memzero(this->password, 50);
+        this->openFiles();
         return 1;
     }
 }
@@ -518,9 +613,7 @@ void Crypto::writeList(std::vector<Entry> &entries, const unsigned char *key)
     std::string dir = "/home/";
     dir += getenv("USER");
     dir += "/.pbox/";
-    mkdir(dir.c_str(), 0700);
     dir += ".list";
-    chmod(dir.c_str(), 0600);
     std::ofstream outfile(dir);
 
     for (unsigned int i = 0; i < entries.size(); i++)
@@ -544,16 +637,13 @@ void Crypto::writeList(std::vector<Entry> &entries, const unsigned char *key)
     }
 
     outfile.close();
-    chmod(dir.c_str(), 0400);
 }
 void Crypto::rewriteList(std::vector<Entry> &entries, const unsigned char *key, const unsigned char *oldkey)
 {
     std::string dir = "/home/";
     dir += getenv("USER");
     dir += "/.pbox/";
-    mkdir(dir.c_str(), 0700);
     dir += ".list";
-    chmod(dir.c_str(), 0600);
     std::ofstream outfile(dir);
 
     for (unsigned int i = 0; i < entries.size(); i++)
@@ -589,7 +679,6 @@ void Crypto::rewriteList(std::vector<Entry> &entries, const unsigned char *key, 
     }
 
     outfile.close();
-    chmod(dir.c_str(), 0400);
 }
 void Crypto::unlockList()
 {
@@ -721,12 +810,9 @@ void Interaction::startFresh()
     std::string dir = "/home/";
     dir += getenv("USER");
     dir += "/.pbox/";
-    mkdir(dir.c_str(), 0700);
     dir += ".list";
-    chmod(dir.c_str(), 0600);
     std::ofstream list(dir);
     list.close();
-    chmod(dir.c_str(), 0400);
 }
 void Interaction::pause()
 {
