@@ -1,0 +1,11 @@
+zy (at) zyisrad (dot) com
+
+This is a Password manager for the command line interface. Linux only. It utilizes libsodium found at http://doc.libsodium.org/
+
+After getting root priveleges(for chattr), it will create the folder ".pbox" in your user folder(/home/<user>/.pbox/). It will then create ".list" and ".pandorasBox" in that folder. ".list" holds your passwords and ".pandorasBox" holds your secrets.
+
+To encrypt your data, a secret is created from your password and some salt. Your password and secret are hashed and stored. The salt is stored unencrypted. To unlock the secret, you recreate the secret with your password and the salt each time you open the application. Then it is verified with the hashed version of the secret.
+
+The titles are all decrypted and stored in memory while the username and passwords remain encrypted in memory. The username and passwords are decrypted only when needed to view or edit.
+
+The title, username, and password are each stored encrypted on a line in ".list" as a message length, nonce, and encrypted data. Authenticated messages are built into the encryption to ensure the data isn't tampered with.
