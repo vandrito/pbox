@@ -200,6 +200,7 @@ class Crypto{
 
         void clearMemory();
         void openFiles();
+        void closeFiles();
         int pandorasBox();
         void getPassword();
         void hashPassword(const char *in, char *out);
@@ -229,38 +230,7 @@ Crypto::~Crypto()
     // out << "Test";
     // out.close();
 
-    {
-        std::string command = "sudo chattr +i ";
-        command += file.pbox;
-        try{
-            chmod(file.pbox.c_str(), 0400);
-        }
-        catch(std::bad_alloc e){
-            printw("%s", e.what());int t = getch();t++;
-        }
-        try{
-            system(command.c_str());
-        }
-        catch(std::bad_alloc e){
-            printw("%s", e.what());int t = getch();t++;
-        }
-    }
-    {
-        std::string command = "sudo chattr +i ";
-        command += file.list;
-        try{
-            chmod(file.list.c_str(), 0400);
-        }
-        catch(std::bad_alloc e){
-            printw("%s", e.what());int t = getch();t++;
-        }
-        try{
-            system(command.c_str());
-        }
-        catch(std::bad_alloc e){
-            printw("%s", e.what());int t = getch();t++;
-        }
-    }
+    
     
     this->clearMemory();
 }
@@ -288,6 +258,7 @@ void Crypto::openFiles()
         dir += ".pandorasBox";
         std::string command = "sudo chattr -i ";
         command += dir;
+        system("sudo -v");
         try{
             system(command.c_str());
         }
@@ -314,6 +285,7 @@ void Crypto::openFiles()
         dir += ".list";
         std::string command = "sudo chattr -i ";
         command += dir;
+        system("sudo -v");
         try{
             system(command.c_str());
         }
@@ -322,6 +294,43 @@ void Crypto::openFiles()
         }
         try{
             chmod(dir.c_str(), 0600);
+        }
+        catch(std::bad_alloc e){
+            printw("%s", e.what());int t = getch();t++;
+        }
+    }
+}
+void Crypto::closeFiles()
+{
+    {
+        std::string command = "sudo chattr +i ";
+        command += file.pbox;
+        system("sudo -v");
+        try{
+            chmod(file.pbox.c_str(), 0400);
+        }
+        catch(std::bad_alloc e){
+            printw("%s", e.what());int t = getch();t++;
+        }
+        try{
+            system(command.c_str());
+        }
+        catch(std::bad_alloc e){
+            printw("%s", e.what());int t = getch();t++;
+        }
+    }
+    {
+        std::string command = "sudo chattr +i ";
+        command += file.list;
+        system("sudo -v");
+        try{
+            chmod(file.list.c_str(), 0400);
+        }
+        catch(std::bad_alloc e){
+            printw("%s", e.what());int t = getch();t++;
+        }
+        try{
+            system(command.c_str());
         }
         catch(std::bad_alloc e){
             printw("%s", e.what());int t = getch();t++;
@@ -731,8 +740,11 @@ Interaction::Interaction()
         printw("Sodium couldn't initialize\n"); refresh();
         this->pause();
     }
-    initscr();
-    this->startUp();
+    if(system("sudo -v") == 0)
+    {
+        initscr();
+        this->startUp();
+    }
 }
 Interaction::~Interaction()
 {
@@ -1319,6 +1331,7 @@ void Interaction::exit()
 {
     //Empty to let program exit normally
     //Need to call destructors to clear memory
+    crypt.closeFiles();
 }
 
 
