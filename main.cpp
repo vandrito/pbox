@@ -14,6 +14,8 @@
 #include <unistd.h>
 #include <signal.h>
 #include <ncurses.h>
+#include <ctime>
+#include <thread>
 
 #include <sodium.h>
 
@@ -229,8 +231,6 @@ Crypto::~Crypto()
     // std::ofstream out("zzzSuccessfulExit");
     // out << "Test";
     // out.close();
-
-    
     
     this->clearMemory();
 }
@@ -707,13 +707,16 @@ class Interaction{
     private:
         Crypto crypt;
         File file;
-        
+        std::thread timer;
+        std::clock_t start;
     public:
         Interaction();
         ~Interaction();
 
         void startUp();
         void startFresh();
+        void checkTime();
+        void refreshPriv();
         void pause();
         int checkCommand(std::string in, const char *test);
         void commandPrompt();
@@ -758,6 +761,9 @@ void Interaction::startUp()
         if (crypt.openPandorasBox())
         {
             crypt.unlockList();
+            this->start = std::clock();
+            this->timer = std::thread(&Interaction::checkTime, this);
+            this->timer.detach();
             this->commandPrompt();
         }
     }
@@ -771,6 +777,9 @@ void Interaction::startUp()
         if (crypt.openPandorasBox())
         {
             crypt.unlockList();
+            this->start = std::clock();
+            this->timer = std::thread(&Interaction::checkTime, this);
+            this->timer.detach();
             this->commandPrompt();
         }
     }
@@ -794,11 +803,32 @@ void Interaction::startFresh()
     std::ofstream list(file.list);
     list.close();
 }
+void Interaction::checkTime()
+{
+    bool running = true;
+    while(running)
+    {
+        double duration = (std::clock() - this->start) / (double) CLOCKS_PER_SEC;
+        if (duration > 30)
+        {
+            running = false;
+            endwin();
+            this->~Interaction();
+            std::exit(0);
+        }
+    }
+}
+void Interaction::refreshPriv()
+{
+    system("sudo -v");
+    this->start = std::clock();
+}
 void Interaction::pause()
 {
     int t = getch();
     t++;
 }
+
 int Interaction::checkCommand(std::string in, const char *test)
 {
     bool equal = true;
@@ -819,7 +849,7 @@ void Interaction::commandPrompt()
     printw("Enter a Command <h for help>\n> ");refresh();
     std::string command;
     getnstr((char *)command.c_str(), 24);
-    system("sudo -v");
+    this->refreshPriv();
 
     if (this->checkCommand(command, "h") || this->checkCommand(command, "help"))
     {
@@ -879,6 +909,7 @@ void Interaction::newEntry()
 
     printw("\n   Title> ");refresh();
     getnstr((char *)tempInput.c_str(),99);
+    this->refreshPriv();
     if (memcmp ( tempInput.c_str(), enter, sizeof(enter) ) == 0)
     {
         strcpy((char *)tempEntry.title.c_str(), "<NA>");
@@ -891,6 +922,7 @@ void Interaction::newEntry()
 
     printw("\n    User> ");refresh();
     getnstr((char *)tempInput.c_str(),99);
+    this->refreshPriv();
     if (memcmp ( tempInput.c_str(), enter, sizeof(enter) ) == 0)
     {
         strcpy((char *)tempEntry.user.c_str(), "<NA>");
@@ -904,6 +936,7 @@ void Interaction::newEntry()
 
     printw("\nPassword> ");refresh();
     getnstr((char *)tempInput.c_str(),99);
+    this->refreshPriv();
     if (memcmp ( tempInput.c_str(), enter, sizeof(enter) ) == 0)
     {
         strcpy((char *)tempEntry.pw.c_str(), "<NA>");
@@ -953,6 +986,7 @@ void Interaction::editEntry()
         }
         keypad(stdscr, TRUE);
         input = getch();
+        this->refreshPriv();
         switch (input)
         {
             case KEY_UP:
@@ -971,6 +1005,7 @@ void Interaction::editEntry()
                 printw("\nentry> ");refresh();
                 std::string entryNumber;
                 getnstr((char *)entryNumber.c_str(), 24);
+                this->refreshPriv();
 
                 int entryNum = strtol(entryNumber.c_str(), NULL, 10) - 1;
                 if ( entryNum < 0 || entryNum > (int)crypt.entries.size()-1)
@@ -989,6 +1024,7 @@ void Interaction::editEntry()
                     printw("\nOld Title> %s", crypt.entries[entryNum].title.c_str());
                     printw("\nNew Title> ");refresh();
                     getnstr((char *)tempInput.c_str(), 99);
+                    this->refreshPriv();
                     if (memcmp ( tempInput.c_str(), enter, sizeof(enter) ) == 0)
                     {
                         //Keep old entry
@@ -1007,6 +1043,7 @@ void Interaction::editEntry()
                     printw("\nOld User> %s", user.c_str());
                     printw("\nNew User> ");refresh();
                     getnstr((char *)tempInput.c_str(), 99);
+                    this->refreshPriv();
                     if (memcmp ( tempInput.c_str(), enter, sizeof(enter) ) == 0)
                     {
                         //Keep old entry
@@ -1025,6 +1062,7 @@ void Interaction::editEntry()
                     printw("\nOld Password> %s", pw.c_str());
                     printw("\nNew Password> ");refresh();
                     getnstr((char *)tempInput.c_str(), 99);
+                    this->refreshPriv();
                     if (memcmp ( tempInput.c_str(), enter, sizeof(enter) ) == 0)
                     {
                         //Keep old entry
@@ -1092,6 +1130,7 @@ void Interaction::deleteEntry()
         }
         keypad(stdscr, TRUE);
         input = getch();
+        this->refreshPriv();
         switch (input)
         {
             case KEY_UP:
@@ -1110,6 +1149,7 @@ void Interaction::deleteEntry()
                 printw("\nentry> ");refresh();
                 std::string tempInput;
                 getnstr((char *)tempInput.c_str(),24);
+                this->refreshPriv();
 
                 int ii = strtol(tempInput.c_str(), NULL, 10) - 1;
                 if ( ii < 0 || ii > (int)crypt.entries.size()-1)
@@ -1176,6 +1216,7 @@ void Interaction::listEntries()
         }
         keypad(stdscr, TRUE);
         input = getch();
+        this->refreshPriv();
         switch (input)
         {
             case KEY_UP:
@@ -1194,8 +1235,7 @@ void Interaction::listEntries()
                 printw("\nentry> ");refresh();
                 std::string tempInput;
                 getstr((char *)tempInput.c_str());
-
-
+                this->refreshPriv();
 
                 if ((int)strtol(tempInput.c_str(), NULL, 10) == '\n')
                 {
@@ -1262,6 +1302,7 @@ void Interaction::getEntry()
     char enter[] = "";
     std::string entry;
     getnstr((char *)entry.c_str(), 49);
+    this->refreshPriv();
 
     if (memcmp ( entry.c_str(), enter, sizeof(enter) ) == 0)
     {
