@@ -258,7 +258,6 @@ void Crypto::openFiles()
         dir += ".pandorasBox";
         std::string command = "sudo chattr -i ";
         command += dir;
-        system("sudo -v");
         try{
             system(command.c_str());
         }
@@ -285,7 +284,6 @@ void Crypto::openFiles()
         dir += ".list";
         std::string command = "sudo chattr -i ";
         command += dir;
-        system("sudo -v");
         try{
             system(command.c_str());
         }
@@ -305,7 +303,6 @@ void Crypto::closeFiles()
     {
         std::string command = "sudo chattr +i ";
         command += file.pbox;
-        system("sudo -v");
         try{
             chmod(file.pbox.c_str(), 0400);
         }
@@ -322,7 +319,6 @@ void Crypto::closeFiles()
     {
         std::string command = "sudo chattr +i ";
         command += file.list;
-        system("sudo -v");
         try{
             chmod(file.list.c_str(), 0400);
         }
@@ -823,6 +819,7 @@ void Interaction::commandPrompt()
     printw("Enter a Command <h for help>\n> ");refresh();
     std::string command;
     getnstr((char *)command.c_str(), 24);
+    system("sudo -v");
 
     if (this->checkCommand(command, "h") || this->checkCommand(command, "help"))
     {
