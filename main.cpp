@@ -256,14 +256,14 @@ void Crypto::openFiles()
             printw("%s", e.what());int t = getch();t++;
         }
         dir += ".pandorasBox";
-        std::string command = "sudo chattr -i ";
-        command += dir;
-        try{
-            system(command.c_str());
-        }
-        catch(std::bad_alloc e){
-            printw("%s", e.what());int t = getch();t++;
-        }
+        // std::string command = "sudo chattr -i ";
+        // command += dir;
+        // try{
+            // system(command.c_str());
+        // }
+        // catch(std::bad_alloc e){
+            // printw("%s", e.what());int t = getch();t++;
+        // }
         try{
             chmod(dir.c_str(), 0600);
         }
@@ -282,14 +282,14 @@ void Crypto::openFiles()
             printw("%s", e.what());int t = getch();t++;
         }
         dir += ".list";
-        std::string command = "sudo chattr -i ";
-        command += dir;
-        try{
-            system(command.c_str());
-        }
-        catch(std::bad_alloc e){
-            printw("%s", e.what());int t = getch();t++;
-        }
+        // std::string command = "sudo chattr -i ";
+        // command += dir;
+        // try{
+            // system(command.c_str());
+        // }
+        // catch(std::bad_alloc e){
+            // printw("%s", e.what());int t = getch();t++;
+        // }
         try{
             chmod(dir.c_str(), 0600);
         }
@@ -301,36 +301,36 @@ void Crypto::openFiles()
 void Crypto::closeFiles()
 {
     {
-        std::string command = "sudo chattr +i ";
-        command += file.pbox;
+        // std::string command = "sudo chattr +i ";
+        // command += file.pbox;
         try{
             chmod(file.pbox.c_str(), 0400);
         }
         catch(std::bad_alloc e){
             printw("%s", e.what());int t = getch();t++;
         }
-        try{
-            system(command.c_str());
-        }
-        catch(std::bad_alloc e){
-            printw("%s", e.what());int t = getch();t++;
-        }
+        // try{
+            // system(command.c_str());
+        // }
+        // catch(std::bad_alloc e){
+            // printw("%s", e.what());int t = getch();t++;
+        // }
     }
     {
-        std::string command = "sudo chattr +i ";
-        command += file.list;
+        // std::string command = "sudo chattr +i ";
+        // command += file.list;
         try{
             chmod(file.list.c_str(), 0400);
         }
         catch(std::bad_alloc e){
             printw("%s", e.what());int t = getch();t++;
         }
-        try{
-            system(command.c_str());
-        }
-        catch(std::bad_alloc e){
-            printw("%s", e.what());int t = getch();t++;
-        }
+        // try{
+            // system(command.c_str());
+        // }
+        // catch(std::bad_alloc e){
+            // printw("%s", e.what());int t = getch();t++;
+        // }
     }
 }
 int Crypto::pandorasBox()
@@ -736,11 +736,11 @@ Interaction::Interaction()
         printw("Sodium couldn't initialize\n"); refresh();
         this->pause();
     }
-    if(system("sudo -v") == 0)
-    {
+    // if(system("sudo -v") == 0)
+    // {
         initscr();
         this->startUp();
-    }
+    // }
 }
 Interaction::~Interaction()
 {
@@ -819,7 +819,7 @@ void Interaction::commandPrompt()
     printw("Enter a Command <h for help>\n> ");refresh();
     std::string command;
     getnstr((char *)command.c_str(), 24);
-    system("sudo -v");
+    // system("sudo -v");
 
     if (this->checkCommand(command, "h") || this->checkCommand(command, "help"))
     {
