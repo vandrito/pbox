@@ -728,6 +728,7 @@ class Interaction{
         void getEntry();
         void helpDialog();
         void changePassword();
+        void backup();
         void exit();
 };
 
@@ -891,6 +892,11 @@ void Interaction::commandPrompt()
     else if (this->checkCommand(command, "change") || this->checkCommand(command, "change password"))
     {
         this->changePassword();
+        this->commandPrompt();
+    }
+    else if (this->checkCommand(command, "backup"))
+    {
+        this->backup();
         this->commandPrompt();
     }
     else
@@ -1331,6 +1337,7 @@ void Interaction::helpDialog()
     printw("list,ls        List current entries\n");
     printw("get            Get an entry and view it\n");
     printw("change         Change password\n");
+    printw("backup         Backup /home/<user>/.pbox folder\n");
     printw("exit           Exit application");refresh();
 
     this->pause();
@@ -1364,6 +1371,26 @@ void Interaction::changePassword()
     file.storeSecrets(crypt.hashedPassword, crypt.hashedMasterKey, crypt.salt);
     crypt.rewriteList(crypt.entries, crypt.masterKey, oldkey);
     sodium_memzero(crypt.masterKey, sizeof crypt.masterKey);
+}
+void Interaction::backup()
+{
+    std::string command = "tar czf /home/";
+    command += getenv("USER");
+    command += "/pboxBackup.tar.gz /home/";
+    command += getenv("USER");
+    command += "/.pbox";
+    try{
+        system(command.c_str());
+
+        clear();refresh();
+        printw("Backup saved as \"~/pboxBackup.tar.gz\"\n");
+        this->pause();
+    }
+    catch(std::bad_alloc e){
+        printw("%s", e.what());int t = getch();t++;
+    }
+
+
 }
 void Interaction::exit()
 {
