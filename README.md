@@ -1,26 +1,25 @@
-#Password Manager
-================
+# Password Manager
 zy (at) zyisrad (dot) com
 
 This is a Password manager for the command line interface. Linux only. It utilizes [libsodium](http://doc.libsodium.org/) found at http://doc.libsodium.org/
 
-##Requirements
-------------
-*libsodium
-*ncurses
-*sudo
+## Requirements
 
-##Commands
---------
-    ```
-    new            Create a new entry
-    edit           Edit an existing entry
-    delete,del     Remove an existing entry
-    list,ls        List current entries
-    get            Get an entry and view it
-    change         Change password
-    exit           Exit application
-    ```
+* libsodium
+* ncurses
+* sudo
+
+## Commands
+```
+new            Create a new entry
+edit           Edit an existing entry
+delete,del     Remove an existing entry
+list,ls        List current entries
+get            Get an entry and view it
+change         Change password
+backup         Backup to tar
+exit           Exit application
+```
 
 After getting root priveleges(for chattr), it will create the folder ".pbox" in your user folder(/home/<user>/.pbox/). It will then create ".list" and ".pandorasBox" in that folder. ".list" holds your passwords and ".pandorasBox" holds your secrets.
 
