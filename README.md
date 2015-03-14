@@ -30,3 +30,12 @@ The titles are all decrypted and stored in memory while the username and passwor
 The title, username, and password are each stored encrypted on a line in ".list" as a message length, nonce, and encrypted data. Authentication is built into the encrypted messages to ensure the data isn't tampered with(Thanks libsodium! ;) ).
 
 Using a detached thread, a timer will automatically and gracefully exit if idle for 30 seconds. This will ensure the unecrypted data is zeroed and the user doesn't accidentally leave it running. The timer is restarted after each command is entered.
+
+## Installation/Testing
+
+```
+//Make an executable named "test" in the current folder
+make
+//Make and executable named "pbox" in /usr/bin
+sudo make install
+```

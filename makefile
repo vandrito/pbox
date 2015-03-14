@@ -15,5 +15,9 @@ $(EXE): $(objects)
 main.o : main.cpp 
 	$(CXX) $(CXXFLAGS) $< -o $@
 
+install: $(objects)
+	$(CXX) $^ $(LDFLAGS) -o /usr/bin/pbox
+
+
 clean:
 	rm *.o && rm $(EXE)
